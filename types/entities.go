@@ -51,11 +51,11 @@ func (sg *StudentGroup) FindID() string {
 }
 
 type Teacher struct {
-	ID       uuid.UUID
-	UserName string
+	ID       uuid.UUID `json:"id"`
+	UserName string    `json:"user_name"`
 	// AcademicDegree string // асистент/доцент/професор
 
-	Business [][]bool
+	Business [][]bool `json:"-"`
 }
 
 func (t *Teacher) FindID() string {

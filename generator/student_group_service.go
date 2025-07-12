@@ -1,4 +1,4 @@
-package services
+package generator
 
 import (
 	"slices"
@@ -6,14 +6,24 @@ import (
 	"github.com/Duckademic/schedule-generator/types"
 )
 
-type StudentGroupServise struct {
+type StudentGroupServise interface {
+	GetAll() []types.StudentGroup
+	SetBusyness([][]bool)
+	SetOneSlotBusyness(groupId string, day, slot int, isBusy bool) error
+	GetFreeSlots(groupId string, day int) []bool
+	GetLectureDay(groupId string, startDay int) int // ПЕРЕРОБИТИ НА УЗАГАЛЬНЕННЯ
+	CountLessonsOn(groupId string, day int) int
+	Find(string) *types.StudentGroup
+}
+
+type studentGroupServise struct {
 	studentGroups    []types.StudentGroup
 	currentGroup     *types.StudentGroup
 	maxLessonsPerDay int
 }
 
-func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int) (*StudentGroupServise, error) {
-	sgs := StudentGroupServise{studentGroups: studentGroups}
+func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int) (StudentGroupServise, error) {
+	sgs := studentGroupServise{studentGroups: studentGroups}
 	// if len(sgs.studentGroups) >= 6 {
 	// 	sgs.studentGroups[0].LectureDays = []int{1, 2}
 	// 	sgs.studentGroups[1].LectureDays = []int{2, 3}
@@ -32,11 +42,11 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 	return &sgs, nil
 }
 
-func (sgs *StudentGroupServise) GetAll() []types.StudentGroup {
+func (sgs *studentGroupServise) GetAll() []types.StudentGroup {
 	return sgs.studentGroups
 }
 
-func (sgs *StudentGroupServise) SetBusyness(free [][]bool) {
+func (sgs *studentGroupServise) SetBusyness(free [][]bool) {
 	for i := range sgs.studentGroups {
 		sgs.studentGroups[i].Business = make([][]bool, len(free))
 		for j := range free {
@@ -46,12 +56,13 @@ func (sgs *StudentGroupServise) SetBusyness(free [][]bool) {
 	}
 }
 
-func (sgs *StudentGroupServise) SetOneSlotBusyness(groupId string, day, slot int, isBusy bool) {
+func (sgs *studentGroupServise) SetOneSlotBusyness(groupId string, day, slot int, isBusy bool) error {
 	group := sgs.Find(groupId)
 	group.Business[day][slot] = isBusy
+	return nil
 }
 
-func (sgs *StudentGroupServise) GetFreeSlots(groupId string, day int) (slots []bool) {
+func (sgs *studentGroupServise) GetFreeSlots(groupId string, day int) (slots []bool) {
 	group := sgs.Find(groupId)
 	slots = make([]bool, len(group.Business[day]))
 
@@ -85,7 +96,7 @@ func (sgs *StudentGroupServise) GetFreeSlots(groupId string, day int) (slots []b
 }
 
 // returns -1 if student group hasn't free lecture day
-func (sgs *StudentGroupServise) GetLectureDay(groupId string, startDay int) int {
+func (sgs *studentGroupServise) GetLectureDay(groupId string, startDay int) int {
 	group := sgs.Find(groupId)
 	if group == nil {
 		panic("student group nor found")
@@ -102,7 +113,7 @@ func (sgs *StudentGroupServise) GetLectureDay(groupId string, startDay int) int 
 	return -1
 }
 
-func (sgs *StudentGroupServise) CountLessonsOn(groupId string, day int) (count int) {
+func (sgs *studentGroupServise) CountLessonsOn(groupId string, day int) (count int) {
 	group := sgs.Find(groupId)
 
 	for _, isBusy := range group.Business[day] {
@@ -115,7 +126,7 @@ func (sgs *StudentGroupServise) CountLessonsOn(groupId string, day int) (count i
 }
 
 // return will be nil if not found
-func (sgs *StudentGroupServise) Find(id string) *types.StudentGroup {
+func (sgs *studentGroupServise) Find(id string) *types.StudentGroup {
 	var group *types.StudentGroup
 	if sgs.currentGroup.Name != id {
 		for i := range sgs.studentGroups {

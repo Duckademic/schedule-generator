@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/Duckademic/schedule-generator/services"
 	"github.com/Duckademic/schedule-generator/types"
 )
 
@@ -41,12 +40,56 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 	return &scheduleGenerator, nil
 }
 
-func (g *ScheduleGenerator) GenerateShadule(
-	studentGroupService *services.StudentGroupServise,
-	teacherService *services.TeacherService,
+func (g *ScheduleGenerator) GenerateShedule(studyLoads []types.StudyLoad) error {
+	studGroups := map[string]types.StudentGroup{}
+	teachers := map[string]types.Teacher{}
+
+	for _, sl := range studyLoads {
+		teachers[sl.Teacher.UserName] = sl.Teacher
+		for _, dl := range sl.Disciplines {
+			for _, group := range dl.Groups {
+				studGroups[group.Name] = group
+			}
+		}
+	}
+
+	studGroupsArr := make([]types.StudentGroup, len(studGroups))
+	counter := 0
+	for _, value := range studGroups {
+		studGroupsArr[counter] = value
+		counter++
+	}
+	studentGroupService, err := NewStudentGroupService(studGroupsArr, g.MaxStudentWorkload)
+	if err != nil {
+		return err
+	}
+	studentGroupService.SetBusyness(g.Business)
+
+	teachersArr := make([]types.Teacher, len(teachers))
+	counter = 0
+	for _, value := range teachers {
+		teachersArr[counter] = value
+		counter++
+	}
+	teacherService, err := NewTeacherService(teachersArr)
+	if err != nil {
+		return err
+	}
+	teacherService.ResetBusyness(g.Business)
+
+	log.Printf("%d %d \n", len(studGroupsArr), len(teachersArr))
+
+	g.startGenerateShedule(studentGroupService, teacherService, studyLoads)
+
+	return nil
+}
+
+func (g *ScheduleGenerator) startGenerateShedule(
+	studentGroupService StudentGroupServise,
+	teacherService TeacherService,
 	studyLoads []types.StudyLoad,
 ) (lessons []types.Lesson) {
-	teacherService.SetBusyness(g.Business)
+	teacherService.ResetBusyness(g.Business)
 	studentGroupService.SetBusyness(g.Business)
 
 	// номер кісткового тижня
@@ -59,7 +102,6 @@ func (g *ScheduleGenerator) GenerateShadule(
 				success := false
 
 				for !success {
-
 					// отримуємо доступний лекційний день
 					day := studentGroupService.GetLectureDay(group.Name, mainWeak*7+offset)
 					if day > mainWeak*7+7 {
@@ -68,7 +110,7 @@ func (g *ScheduleGenerator) GenerateShadule(
 					}
 
 					// отримання вільного слота для групи та викладача
-					lessonSlot := GetFirstPeretun(
+					lessonSlot := GetFirstFreeSlotForBoth(
 						studentGroupService.GetFreeSlots(group.Name, day),
 						teacherService.GetFreeSlots(studyLoad.Teacher.UserName, day),
 					)
@@ -94,8 +136,7 @@ func (g *ScheduleGenerator) GenerateShadule(
 	return nil
 }
 
-// НЕТЕСТОВАНА + перейменувати
-func GetFirstPeretun(first, second []bool) int {
+func GetFirstFreeSlotForBoth(first, second []bool) int {
 	min := min(len(first), len(second))
 	for i := range min {
 		if (first[i] == second[i]) && first[i] {

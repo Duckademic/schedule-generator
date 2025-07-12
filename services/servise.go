@@ -2,19 +2,18 @@ package services
 
 import (
 	"github.com/Duckademic/schedule-generator/types"
+	"github.com/google/uuid"
 )
 
 type Service[T any] interface {
-	Create(T) error
-	// Update(T) error
-	// Read(T) ([]T, error)
-	ReadFirst(T) (*T, error) // за будь-яким полем
-	// Delete(T) error
+	Create(T) (*T, error)
+	Update(T) error
+	Find(uuid.UUID) *T
+	Delete(uuid.UUID) error
 	GetAll() []T
 }
 
 type SimpleService[T types.Model] struct {
-	// Service[types.Teacher]
 	objects []T
 }
 
@@ -30,7 +29,7 @@ func (s *SimpleService[T]) ReadFirst(t T) T {
 			return o
 		}
 	}
-	panic(t.FindID() + "not found")
+	panic(t.FindID() + " not found")
 }
 
 func (s *SimpleService[T]) GetAll() []T {
