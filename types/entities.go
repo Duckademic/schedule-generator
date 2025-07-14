@@ -38,12 +38,12 @@ type DisciplineLoad struct {
 // ==============================================================
 
 type StudentGroup struct {
-	ID   uuid.UUID
-	Name string
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 	// Number string // номер групи (32)
 
-	Business    [][]bool
-	LectureDays []int
+	Business    [][]bool `json:"-"`
+	LectureDays []int    `json:"-"`
 }
 
 func (sg *StudentGroup) FindID() string {

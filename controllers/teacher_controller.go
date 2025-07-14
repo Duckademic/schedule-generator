@@ -10,12 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type TeacherController interface {
+	Controller[types.Teacher]
+}
+
 type teacherController struct {
 	service  services.TeacherService
 	validate *validator.Validate
 }
 
-func NewTeacherController(s services.TeacherService) Controller[types.Teacher] {
+func NewTeacherController(s services.TeacherService) TeacherController {
 	return &teacherController{service: s, validate: validator.New()}
 }
 
@@ -26,10 +30,10 @@ func (tc *teacherController) getTeahcerFromContext(ctx *gin.Context) (*types.Tea
 		return nil, err
 	}
 
-	err = tc.validate.Struct(teacher)
-	if err != nil {
-		return nil, err
-	}
+	// err = tc.validate.Struct(teacher)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &teacher, nil
 }

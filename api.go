@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/Duckademic/schedule-generator/controllers"
 	"github.com/Duckademic/schedule-generator/generator"
@@ -12,9 +11,10 @@ import (
 )
 
 type JSONAPIServer struct {
-	listenAddr        string
-	generator         generator.ScheduleGenerator
-	teacherController controllers.Controller[types.Teacher]
+	listenAddr             string
+	generator              generator.ScheduleGenerator
+	teacherController      controllers.BasicMiddleware[types.Teacher]
+	studentGroupController controllers.BasicMiddleware[types.StudentGroup]
 }
 
 func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) (*JSONAPIServer, error) {
@@ -28,7 +28,12 @@ func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) 
 		generator:  *gen,
 	}
 
-	api.teacherController = controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{}))
+	api.teacherController = *controllers.NewBasicMiddleware(
+		controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{})),
+	)
+	api.studentGroupController = *controllers.NewBasicMiddleware(
+		controllers.NewStudentGroupController(services.NewStudentGroupService([]types.StudentGroup{})),
+	)
 
 	return &api, nil
 }
@@ -39,44 +44,16 @@ func (s *JSONAPIServer) Run() error {
 	// server.POST("/generator/reset/", func(ctx *gin.Context) {
 
 	// })
-	server.GET("/teacher/", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, s.teacherController.GetAll())
-	})
+	server.GET("/teacher/", s.teacherController.GetAll)
+	server.POST("/teacher/", s.teacherController.Create)
+	server.PUT("/teacher/:teacher_id/", s.teacherController.Update)
+	server.DELETE("/teacher/:teacher_id/", s.teacherController.Delete)
 
-	server.POST("/teacher/", func(ctx *gin.Context) {
-		teacher, err := s.teacherController.Create(ctx)
-		if err != nil {
-			s.responseWithError(ctx, http.StatusBadRequest, err)
-			return
-		}
-
-		ctx.JSON(http.StatusCreated, teacher)
-	})
-
-	server.PUT("/teacher/:teacher_id/", func(ctx *gin.Context) {
-		err := s.teacherController.Update(ctx)
-		if err != nil {
-			s.responseWithError(ctx, http.StatusBadRequest, err)
-			return
-		}
-
-		ctx.Status(http.StatusNoContent)
-	})
-
-	server.DELETE("/teacher/:teacher_id/", func(ctx *gin.Context) {
-		err := s.teacherController.Delete(ctx)
-		if err != nil {
-			s.responseWithError(ctx, http.StatusBadRequest, err)
-			return
-		}
-
-		ctx.Status(http.StatusNoContent)
-	})
+	server.GET("/student_group/", s.studentGroupController.GetAll)
+	server.POST("/student_group/", s.studentGroupController.Create)
+	server.PUT("/student_group/:student_group_id/", s.studentGroupController.Update)
+	server.DELETE("/student_group/:student_group_id/", s.studentGroupController.Delete)
 
 	err := server.Run(s.listenAddr)
 	return err
-}
-
-func (s *JSONAPIServer) responseWithError(ctx *gin.Context, status int, err error) {
-	ctx.JSON(status, gin.H{"error": err.Error()})
 }
