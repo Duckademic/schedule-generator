@@ -73,11 +73,12 @@ func (d *Discipline) FindID() string {
 }
 
 type Lesson struct {
+	ID        uuid.UUID
 	StartTime time.Time
 	EndTime   time.Time
 	Value     int // кількість академічних годин
 	Type      LessonType
-	Gap       int
+	// Gap       int
 }
 
 func CheckWindows(teachers []Teacher, groups []StudentGroup) (teacherW, groupW int) {

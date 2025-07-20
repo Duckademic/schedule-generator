@@ -7,24 +7,25 @@ import (
 )
 
 type Controller[T any] interface {
+	Create(*gin.Context)
+	Update(*gin.Context)
+	Delete(*gin.Context)
+	GetAll(*gin.Context)
+}
+
+type ServiceController[T any] interface {
 	Create(*gin.Context) (*T, error)
 	Update(*gin.Context) error
 	Delete(*gin.Context) error
 	GetAll() []T
 }
 
-func NewBasicMiddleware[T any](controller Controller[T]) *BasicMiddleware[T] {
-	return &BasicMiddleware[T]{
-		controller: controller,
-	}
+type BasicController[T any] struct {
+	serviceController ServiceController[T]
 }
 
-type BasicMiddleware[T any] struct {
-	controller Controller[T]
-}
-
-func (bm *BasicMiddleware[T]) Create(ctx *gin.Context) {
-	teacher, err := bm.controller.Create(ctx)
+func (bm *BasicController[T]) Create(ctx *gin.Context) {
+	teacher, err := bm.serviceController.Create(ctx)
 	if err != nil {
 		responseWithError(ctx, http.StatusBadRequest, err)
 		return
@@ -33,8 +34,8 @@ func (bm *BasicMiddleware[T]) Create(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, teacher)
 }
 
-func (bm *BasicMiddleware[T]) Update(ctx *gin.Context) {
-	err := bm.controller.Update(ctx)
+func (bm *BasicController[T]) Update(ctx *gin.Context) {
+	err := bm.serviceController.Update(ctx)
 	if err != nil {
 		responseWithError(ctx, http.StatusBadRequest, err)
 		return
@@ -43,8 +44,8 @@ func (bm *BasicMiddleware[T]) Update(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-func (bm *BasicMiddleware[T]) Delete(ctx *gin.Context) {
-	err := bm.controller.Delete(ctx)
+func (bm *BasicController[T]) Delete(ctx *gin.Context) {
+	err := bm.serviceController.Delete(ctx)
 	if err != nil {
 		responseWithError(ctx, http.StatusBadRequest, err)
 		return
@@ -53,8 +54,8 @@ func (bm *BasicMiddleware[T]) Delete(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-func (bm *BasicMiddleware[T]) GetAll(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, bm.controller.GetAll())
+func (bm *BasicController[T]) GetAll(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, bm.serviceController.GetAll())
 }
 
 func responseWithError(ctx *gin.Context, status int, err error) {

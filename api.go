@@ -13,8 +13,8 @@ import (
 type JSONAPIServer struct {
 	listenAddr             string
 	generator              generator.ScheduleGenerator
-	teacherController      controllers.BasicMiddleware[types.Teacher]
-	studentGroupController controllers.BasicMiddleware[types.StudentGroup]
+	teacherController      controllers.TeacherController
+	studentGroupController controllers.StudentGroupController
 }
 
 func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) (*JSONAPIServer, error) {
@@ -28,12 +28,8 @@ func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) 
 		generator:  *gen,
 	}
 
-	api.teacherController = *controllers.NewBasicMiddleware(
-		controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{})),
-	)
-	api.studentGroupController = *controllers.NewBasicMiddleware(
-		controllers.NewStudentGroupController(services.NewStudentGroupService([]types.StudentGroup{})),
-	)
+	api.teacherController = controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{}))
+	api.studentGroupController = controllers.NewStudentGroupController(services.NewStudentGroupService([]types.StudentGroup{}))
 
 	return &api, nil
 }

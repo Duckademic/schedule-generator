@@ -15,38 +15,50 @@ type StudentGroupController interface {
 }
 
 type studentGroupController struct {
-	service  services.StudentGroupServise
-	validate *validator.Validate
+	BasicController[types.StudentGroup]
 }
 
 func NewStudentGroupController(service services.StudentGroupServise) StudentGroupController {
 	sgc := studentGroupController{
-		service:  service,
-		validate: validator.New(),
+		BasicController: BasicController[types.StudentGroup]{
+			serviceController: &studentGroupServiceController{
+				service:  service,
+				validate: validator.New(),
+			},
+		},
 	}
 
 	return &sgc
 }
 
-func (sgc *studentGroupController) Create(ctx *gin.Context) (*types.StudentGroup, error) {
-	studentGroup, err := sgc.getStudentGroupFromContext(ctx)
+type StudentGroupServiceController interface {
+	ServiceController[types.StudentGroup]
+}
+
+type studentGroupServiceController struct {
+	service  services.StudentGroupServise
+	validate *validator.Validate
+}
+
+func (sgsc *studentGroupServiceController) Create(ctx *gin.Context) (*types.StudentGroup, error) {
+	studentGroup, err := sgsc.getStudentGroupFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return sgc.service.Create(*studentGroup)
+	return sgsc.service.Create(*studentGroup)
 }
 
-func (sgc *studentGroupController) Update(ctx *gin.Context) error {
-	studentGroup, err := sgc.getStudentGroupFromContext(ctx)
+func (sgsc *studentGroupServiceController) Update(ctx *gin.Context) error {
+	studentGroup, err := sgsc.getStudentGroupFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	return sgc.service.Update(*studentGroup)
+	return sgsc.service.Update(*studentGroup)
 }
 
-func (sgc *studentGroupController) Delete(ctx *gin.Context) error {
+func (sgsc *studentGroupServiceController) Delete(ctx *gin.Context) error {
 	studentGroupID, ok := ctx.Params.Get("student_group_id")
 	if !ok {
 		return fmt.Errorf("missing student_group_id in URL parameters")
@@ -57,14 +69,14 @@ func (sgc *studentGroupController) Delete(ctx *gin.Context) error {
 		return fmt.Errorf("incorrect student group id")
 	}
 
-	return sgc.service.Delete(sgUUID)
+	return sgsc.service.Delete(sgUUID)
 }
 
-func (sgc *studentGroupController) GetAll() []types.StudentGroup {
-	return sgc.service.GetAll()
+func (sgsc *studentGroupServiceController) GetAll() []types.StudentGroup {
+	return sgsc.service.GetAll()
 }
 
-func (sgc *studentGroupController) getStudentGroupFromContext(ctx *gin.Context) (*types.StudentGroup, error) {
+func (sgsc *studentGroupServiceController) getStudentGroupFromContext(ctx *gin.Context) (*types.StudentGroup, error) {
 	var studentGroup types.StudentGroup
 	err := ctx.ShouldBindBodyWithJSON(&studentGroup)
 	if err != nil {
