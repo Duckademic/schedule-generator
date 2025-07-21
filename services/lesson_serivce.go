@@ -9,7 +9,7 @@ import (
 
 type LessonService interface {
 	Service[types.Lesson]
-	SwapSlots(first, second types.Lesson) error
+	SwapSlots(firstId, secondId uuid.UUID) error
 }
 
 type lessonService struct {
@@ -71,7 +71,17 @@ func (ls *lessonService) GetAll() []types.Lesson {
 	return ls.lessons
 }
 
-func (ls *lessonService) SwapSlots(first, second types.Lesson) error {
+func (ls *lessonService) SwapSlots(firstId, secondId uuid.UUID) error {
+	first := ls.Find(firstId)
+	if first == nil {
+		return fmt.Errorf("lesson %s not found (first)", firstId)
+	}
+
+	second := ls.Find(secondId)
+	if second == nil {
+		return fmt.Errorf("lesson %s not found (second)", firstId)
+	}
+
 	tmpTime := first.StartTime
 	first.StartTime = second.StartTime
 	second.StartTime = tmpTime

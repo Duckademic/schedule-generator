@@ -15,6 +15,7 @@ type JSONAPIServer struct {
 	generator              generator.ScheduleGenerator
 	teacherController      controllers.TeacherController
 	studentGroupController controllers.StudentGroupController
+	lessonController       controllers.LessonController
 }
 
 func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) (*JSONAPIServer, error) {
@@ -30,6 +31,7 @@ func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) 
 
 	api.teacherController = controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{}))
 	api.studentGroupController = controllers.NewStudentGroupController(services.NewStudentGroupService([]types.StudentGroup{}))
+	api.lessonController = controllers.NewLessonController(services.NewLessonService([]types.Lesson{}))
 
 	return &api, nil
 }
@@ -49,6 +51,12 @@ func (s *JSONAPIServer) Run() error {
 	server.POST("/student_group/", s.studentGroupController.Create)
 	server.PUT("/student_group/:student_group_id/", s.studentGroupController.Update)
 	server.DELETE("/student_group/:student_group_id/", s.studentGroupController.Delete)
+
+	server.GET("/lesson/", s.lessonController.GetAll)
+	server.POST("/lesson/", s.lessonController.Create)
+	server.PUT("/lesson/:lesson_id/", s.lessonController.Update)
+	server.DELETE("/lesson/:lesson_id/", s.lessonController.Delete)
+	server.POST("/lesson/swap/", s.lessonController.SwapSlots)
 
 	err := server.Run(s.listenAddr)
 	return err

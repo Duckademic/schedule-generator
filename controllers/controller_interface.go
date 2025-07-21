@@ -1,9 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/Duckademic/schedule-generator/services"
+	"github.com/Duckademic/schedule-generator/types"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Controller[T any] interface {
@@ -13,51 +17,73 @@ type Controller[T any] interface {
 	GetAll(*gin.Context)
 }
 
-type ServiceController[T any] interface {
-	Create(*gin.Context) (*T, error)
-	Update(*gin.Context) error
-	Delete(*gin.Context) error
-	GetAll() []T
+type basicController[T any] struct {
+	service       services.Service[T]
+	objectParamId string
 }
 
-type BasicController[T any] struct {
-	serviceController ServiceController[T]
-}
-
-func (bm *BasicController[T]) Create(ctx *gin.Context) {
-	teacher, err := bm.serviceController.Create(ctx)
+func (bc *basicController[T]) Create(ctx *gin.Context) {
+	obj, err := bc.getObjectFromContext(ctx)
 	if err != nil {
-		responseWithError(ctx, http.StatusBadRequest, err)
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, teacher)
+	pObj, err := bc.service.Create(*obj)
+	if err != nil {
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
+	}
+
+	ctx.JSON(http.StatusCreated, pObj)
 }
 
-func (bm *BasicController[T]) Update(ctx *gin.Context) {
-	err := bm.serviceController.Update(ctx)
+func (bc *basicController[T]) Update(ctx *gin.Context) {
+	obj, err := bc.getObjectFromContext(ctx)
 	if err != nil {
-		responseWithError(ctx, http.StatusBadRequest, err)
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = bc.service.Update(*obj)
+	if err != nil {
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+func (bc *basicController[T]) Delete(ctx *gin.Context) {
+	objId, ok := ctx.Params.Get(bc.objectParamId)
+	if !ok {
+		types.ResponseWithError(ctx, http.StatusBadRequest, fmt.Errorf("missing teacher_id in URL parameters"))
+		return
+	}
+
+	objUuid, err := uuid.Parse(objId)
+	if err != nil {
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = bc.service.Delete(objUuid)
+	if err != nil {
+		types.ResponseWithError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	ctx.Status(http.StatusNoContent)
 }
 
-func (bm *BasicController[T]) Delete(ctx *gin.Context) {
-	err := bm.serviceController.Delete(ctx)
+func (bc *basicController[T]) GetAll(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, bc.service.GetAll())
+}
+
+func (bc *basicController[T]) getObjectFromContext(ctx *gin.Context) (*T, error) {
+	var obj T
+	err := ctx.ShouldBindBodyWithJSON(&obj)
 	if err != nil {
-		responseWithError(ctx, http.StatusBadRequest, err)
-		return
+		return nil, err
 	}
 
-	ctx.Status(http.StatusNoContent)
-}
-
-func (bm *BasicController[T]) GetAll(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, bm.serviceController.GetAll())
-}
-
-func responseWithError(ctx *gin.Context, status int, err error) {
-	ctx.JSON(status, gin.H{"error": err.Error()})
+	return &obj, nil
 }

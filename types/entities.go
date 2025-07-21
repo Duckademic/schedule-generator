@@ -73,11 +73,11 @@ func (d *Discipline) FindID() string {
 }
 
 type Lesson struct {
-	ID        uuid.UUID
-	StartTime time.Time
-	EndTime   time.Time
-	Value     int // кількість академічних годин
-	Type      LessonType
+	ID        uuid.UUID  `json:"id"`
+	StartTime time.Time  `json:"start_time"`
+	EndTime   time.Time  `json:"end_time"`
+	Value     int        `json:"value"` // кількість академічних годин
+	Type      LessonType `json:"type"`
 	// Gap       int
 }
 
@@ -143,5 +143,5 @@ func TestCheckWindows() {
 }
 
 type LessonType struct {
-	Name string
+	Name string `json:"name"`
 }
