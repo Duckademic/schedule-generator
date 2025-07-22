@@ -25,11 +25,7 @@ func NewLessonService(lessons []types.Lesson) LessonService {
 }
 
 func (ls *lessonService) Create(lesson types.Lesson) (*types.Lesson, error) {
-	l := ls.Find(lesson.ID)
-	if l != nil {
-		return nil, fmt.Errorf("lesson %s alredy exists", l.ID)
-	}
-
+	lesson.ID = uuid.New()
 	ls.lessons = append(ls.lessons, lesson)
 
 	return &lesson, nil

@@ -6,7 +6,60 @@ import (
 	"time"
 
 	"github.com/Duckademic/schedule-generator/types"
+	"github.com/google/uuid"
 )
+
+type LessonSlot struct {
+	Day  int
+	Slot int
+}
+
+// ==============================================================
+
+type Discipline struct {
+	ID   uuid.UUID
+	Name string
+	// Lessons map[string]int // тип - кількість годин
+}
+
+type Lesson struct {
+	types.Lesson
+}
+
+func CheckWindows(teachers []Teacher, groups []StudentGroup) (teacherW, groupW int) {
+	for i := range len(teachers[0].BusyGrid) {
+		for _, t := range teachers {
+			lastBusy := -1
+			for j, isBusy := range t.BusyGrid[i] {
+				if isBusy {
+					if lastBusy != -1 && (j-lastBusy) > 1 {
+						teacherW += j - lastBusy - 1
+					}
+					lastBusy = j
+				}
+			}
+		}
+
+		for _, t := range groups {
+			lastBusy := -1
+			for j, isBusy := range t.BusyGrid[i] {
+				if isBusy {
+					if lastBusy != -1 && (j-lastBusy) > 1 {
+						groupW += j - lastBusy - 1
+					}
+					lastBusy = j
+				}
+			}
+		}
+	}
+	return
+}
+
+type LessonType struct {
+	types.LessonType
+}
+
+// ==================================================================================
 
 type ScheduleGeneratorConfig struct {
 	LessonsValue       int
@@ -18,7 +71,10 @@ type ScheduleGeneratorConfig struct {
 
 type ScheduleGenerator struct {
 	ScheduleGeneratorConfig
-	Business [][]bool
+	BusyGrid            [][]bool
+	teacherService      TeacherService
+	studentGroupService StudentGroupService
+	studyLoadService    StudyLoadService
 }
 
 func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
@@ -34,94 +90,92 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 	}
 
 	for date := cfg.Start; !date.After(cfg.End); date = date.AddDate(0, 0, 1) {
-		scheduleGenerator.Business = append(scheduleGenerator.Business, make([]bool, cfg.WorkLessons[date.Weekday()]))
+		scheduleGenerator.BusyGrid = append(scheduleGenerator.BusyGrid, make([]bool, cfg.WorkLessons[date.Weekday()]))
 	}
 
 	return &scheduleGenerator, nil
 }
 
-func (g *ScheduleGenerator) GenerateShedule(studyLoads []types.StudyLoad) error {
-	studGroups := map[string]types.StudentGroup{}
-	teachers := map[string]types.Teacher{}
-
-	for _, sl := range studyLoads {
-		teachers[sl.Teacher.UserName] = sl.Teacher
-		for _, dl := range sl.Disciplines {
-			for _, group := range dl.Groups {
-				studGroups[group.Name] = group
-			}
-		}
+func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
+	if len(g.BusyGrid) == 0 {
+		return fmt.Errorf("config not initialized")
 	}
 
-	studGroupsArr := make([]types.StudentGroup, len(studGroups))
-	counter := 0
-	for _, value := range studGroups {
-		studGroupsArr[counter] = value
-		counter++
-	}
-	studentGroupService, err := NewStudentGroupService(studGroupsArr, g.MaxStudentWorkload)
+	ts, err := NewTeacherService(teachers, g.BusyGrid)
 	if err != nil {
 		return err
 	}
-	studentGroupService.SetBusyness(g.Business)
 
-	teachersArr := make([]types.Teacher, len(teachers))
-	counter = 0
-	for _, value := range teachers {
-		teachersArr[counter] = value
-		counter++
-	}
-	teacherService, err := NewTeacherService(teachersArr)
-	if err != nil {
-		return err
-	}
-	teacherService.ResetBusyness(g.Business)
-
-	log.Printf("%d %d \n", len(studGroupsArr), len(teachersArr))
-
-	g.startGenerateShedule(studentGroupService, teacherService, studyLoads)
-
+	g.teacherService = ts
 	return nil
 }
 
-func (g *ScheduleGenerator) startGenerateShedule(
-	studentGroupService StudentGroupServise,
-	teacherService TeacherService,
-	studyLoads []types.StudyLoad,
-) (lessons []types.Lesson) {
-	teacherService.ResetBusyness(g.Business)
-	studentGroupService.SetBusyness(g.Business)
+func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup) error {
+	if len(g.BusyGrid) == 0 {
+		return fmt.Errorf("config not initialized")
+	}
 
+	sgs, err := NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.BusyGrid)
+	if err != nil {
+		return err
+	}
+
+	g.studentGroupService = sgs
+	return nil
+}
+
+func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
+	if g.teacherService == nil {
+		return fmt.Errorf("teachers not set")
+	}
+
+	if g.studentGroupService == nil {
+		return fmt.Errorf("student groups not set")
+	}
+
+	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService)
+	if err != nil {
+		return err
+	}
+
+	g.studyLoadService = sls
+	return nil
+}
+
+func (g *ScheduleGenerator) GenerateSchedule() error {
 	// номер кісткового тижня
 	mainWeak := 0
 
-	for _, studyLoad := range studyLoads {
+	for _, studyLoad := range g.studyLoadService.GetAll() {
 		for _, dp := range studyLoad.Disciplines {
-			for _, group := range dp.Groups {
+			for _, studentGroup := range dp.Groups {
 				offset := 0
 				success := false
 
 				for !success {
 					// отримуємо доступний лекційний день
-					day := studentGroupService.GetLectureDay(group.Name, mainWeak*7+offset)
+					day := g.studentGroupService.GetLectureDay(studentGroup, mainWeak*7+offset)
 					if day > mainWeak*7+7 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
-						panic("group havn't enought slots for lectures")
+						panic("group haven't enough slots for lectures")
 					}
 
 					// отримання вільного слота для групи та викладача
 					lessonSlot := GetFirstFreeSlotForBoth(
-						studentGroupService.GetFreeSlots(group.Name, day),
-						teacherService.GetFreeSlots(studyLoad.Teacher.UserName, day),
+						g.studentGroupService.GetFreeSlots(studentGroup, day),
+						g.teacherService.GetFreeSlots(studyLoad.Teacher, day),
 					)
 
 					if lessonSlot != -1 {
+						slot := LessonSlot{Day: day, Slot: lessonSlot}
 						// встановлення лекції
 						// ЗАГЛУШКА
-						log.Printf("викладач: %s, група: %s, день/слот: %d/%d \n", studyLoad.Teacher.UserName, group.Name, day, lessonSlot)
+						log.Printf("викладач: %s, група: %s, день/слот: %d/%d \n",
+							studyLoad.Teacher.UserName, studentGroup.Name, day, lessonSlot,
+						)
 						// ========
-						studentGroupService.SetOneSlotBusyness(group.Name, day, lessonSlot, true)
-						teacherService.SetOneSlotBusyness(studyLoad.Teacher.UserName, day, lessonSlot, true)
+						g.studentGroupService.SetOneSlotBusyness(studentGroup, slot, true)
+						g.teacherService.SetOneSlotBusyness(studyLoad.Teacher, slot, true)
 						success = true
 					}
 					offset = day - mainWeak*7 + 1
@@ -131,7 +185,7 @@ func (g *ScheduleGenerator) startGenerateShedule(
 		}
 	}
 
-	tw, sgw := types.CheckWindows(teacherService.GetAll(), studentGroupService.GetAll())
+	tw, sgw := CheckWindows(g.teacherService.GetAll(), g.studentGroupService.GetAll())
 	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
 	return nil
 }

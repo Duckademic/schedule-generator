@@ -4,86 +4,84 @@ import (
 	"fmt"
 
 	"github.com/Duckademic/schedule-generator/types"
+	"github.com/google/uuid"
 )
 
+type Teacher struct {
+	ID       uuid.UUID
+	UserName string
+	BusyGrid [][]bool
+}
+
 type TeacherService interface {
-	ResetBusyness([][]bool)
-	SetOneSlotBusyness(teacheId string, day, slot int, isBusy bool) error
-	GetFreeSlots(teacherId string, day int) []bool
-	Find(string) *types.Teacher
-	GetAll() []types.Teacher
+	SetOneSlotBusyness(*Teacher, LessonSlot, bool) error
+	GetFreeSlots(teacher *Teacher, day int) []bool
+	Find(uuid.UUID) *Teacher
+	GetAll() []Teacher
 }
 
 type teacherService struct {
-	teachers       []types.Teacher
-	currentTeacher *types.Teacher
+	teachers []Teacher
 }
 
-func NewTeacherService(teachers []types.Teacher) (TeacherService, error) {
-	ts := teacherService{teachers: teachers}
-	ts.currentTeacher = &ts.teachers[0]
+func NewTeacherService(teachers []types.Teacher, busyGrid [][]bool) (TeacherService, error) {
+	ts := teacherService{teachers: make([]Teacher, len(teachers))}
+
+	for i := range teachers {
+		ts.teachers[i] = Teacher{ID: teachers[i].ID, UserName: teachers[i].UserName}
+		ts.teachers[i].BusyGrid = make([][]bool, len(busyGrid))
+		for j := range busyGrid {
+			ts.teachers[i].BusyGrid[j] = make([]bool, len(busyGrid[j]))
+			copy(ts.teachers[i].BusyGrid[j], busyGrid[j])
+		}
+	}
+
 	return &ts, nil
 }
 
-func (ts *teacherService) GetAll() []types.Teacher {
+func (ts *teacherService) GetAll() []Teacher {
 	return ts.teachers
 }
 
-func (ts *teacherService) ResetBusyness(free [][]bool) {
-	for i := range ts.teachers {
-		ts.teachers[i].Business = make([][]bool, len(free))
-		for j := range free {
-			ts.teachers[i].Business[j] = make([]bool, len(free[j]))
-			copy(ts.teachers[i].Business[j], free[j])
-		}
-	}
-}
-
-func (ts *teacherService) SetOneSlotBusyness(teacherId string, day, slot int, isBusy bool) error {
+func (ts *teacherService) SetOneSlotBusyness(teacher *Teacher, slot LessonSlot, isBusy bool) error {
 	if len(ts.teachers) == 0 {
 		return fmt.Errorf("service hasn't teachers")
 	}
-	if len(ts.teachers[0].Business) <= day {
-		return fmt.Errorf("day %d outside of the Business (%d)", day, len(ts.teachers[0].Business))
+	if len(ts.teachers[0].BusyGrid) <= slot.Day {
+		return fmt.Errorf("day %d outside of the Business (%d)", slot.Day, len(ts.teachers[0].BusyGrid))
 	}
-	if len(ts.teachers[0].Business[day]) <= slot {
-		return fmt.Errorf("teachers hasn't %d slot (max: %d)", slot, len(ts.teachers[0].Business[day]))
+	if len(ts.teachers[0].BusyGrid[slot.Day]) <= slot.Slot {
+		return fmt.Errorf("teachers hasn't %d slot (max: %d)", slot, len(ts.teachers[0].BusyGrid[slot.Day]))
 	}
-
-	teacher := ts.Find(teacherId)
 	if teacher == nil {
-		return fmt.Errorf("teacher %s not found", teacherId)
+		return fmt.Errorf("teacher is nil")
 	}
 
-	teacher.Business[day][slot] = isBusy
+	teacher.BusyGrid[slot.Day][slot.Slot] = isBusy
 	return nil
 }
 
-func (ts *teacherService) GetFreeSlots(teacherId string, day int) (slots []bool) {
-	teacher := ts.Find(teacherId)
-	slots = make([]bool, len(teacher.Business[day]))
+func (ts *teacherService) GetFreeSlots(teacher *Teacher, day int) (slots []bool) {
+	if teacher == nil {
+		return
+	}
+
+	slots = make([]bool, len(teacher.BusyGrid[day]))
 
 	// заглушка для викладача (вільні слоти - то всі незайняті)
 	for i := range slots {
-		slots[i] = !teacher.Business[day][i]
+		slots[i] = !teacher.BusyGrid[day][i]
 	}
 	return
 }
 
 // return will be nil if not found
-func (ts *teacherService) Find(id string) *types.Teacher {
-	var teacher *types.Teacher
-	if ts.currentTeacher.UserName != id {
-		for i := range ts.teachers {
-			if ts.teachers[i].UserName == id {
-				teacher = &ts.teachers[i]
-				break
-			}
+func (ts *teacherService) Find(id uuid.UUID) *Teacher {
+	for i := range ts.teachers {
+		if ts.teachers[i].ID == id {
+			return &ts.teachers[i]
 		}
-		ts.currentTeacher = teacher
-	} else {
-		teacher = ts.currentTeacher
 	}
 
-	return teacher
+	return nil
 }
