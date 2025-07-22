@@ -143,6 +143,18 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 }
 
 func (g *ScheduleGenerator) GenerateSchedule() error {
+	if g.teacherService == nil {
+		return fmt.Errorf("teachers not set")
+	}
+
+	if g.studentGroupService == nil {
+		return fmt.Errorf("student groups not set")
+	}
+
+	if g.studyLoadService == nil {
+		return fmt.Errorf("study load service not set")
+	}
+
 	// номер кісткового тижня
 	mainWeak := 0
 
@@ -183,6 +195,18 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 			}
 		}
+	}
+
+	return nil
+}
+
+func (g *ScheduleGenerator) CheckSchedule() error {
+	if g.teacherService == nil {
+		return fmt.Errorf("teachers not set")
+	}
+
+	if g.studentGroupService == nil {
+		return fmt.Errorf("student groups not set")
 	}
 
 	tw, sgw := CheckWindows(g.teacherService.GetAll(), g.studentGroupService.GetAll())
