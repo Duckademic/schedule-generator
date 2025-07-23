@@ -9,21 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type LessonSlot struct {
-	Day  int
-	Slot int
-}
-
 // ==============================================================
 
 type Discipline struct {
 	ID   uuid.UUID
 	Name string
 	// Lessons map[string]int // тип - кількість годин
-}
-
-type Lesson struct {
-	types.Lesson
 }
 
 func CheckWindows(teachers []Teacher, groups []StudentGroup) (teacherW, groupW int) {
@@ -55,10 +46,6 @@ func CheckWindows(teachers []Teacher, groups []StudentGroup) (teacherW, groupW i
 	return
 }
 
-type LessonType struct {
-	types.LessonType
-}
-
 // ==================================================================================
 
 type ScheduleGeneratorConfig struct {
@@ -75,6 +62,7 @@ type ScheduleGenerator struct {
 	teacherService      TeacherService
 	studentGroupService StudentGroupService
 	studyLoadService    StudyLoadService
+	lessonService       LessonService
 }
 
 func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
@@ -92,6 +80,12 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 	for date := cfg.Start; !date.After(cfg.End); date = date.AddDate(0, 0, 1) {
 		scheduleGenerator.BusyGrid = append(scheduleGenerator.BusyGrid, make([]bool, cfg.WorkLessons[date.Weekday()]))
 	}
+
+	ls, err := NewLessonService(cfg.LessonsValue)
+	if err != nil {
+		return nil, err
+	}
+	scheduleGenerator.lessonService = ls
 
 	return &scheduleGenerator, nil
 }
@@ -128,7 +122,6 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 	if g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
 	}
-
 	if g.studentGroupService == nil {
 		return fmt.Errorf("student groups not set")
 	}
@@ -146,11 +139,9 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	if g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
 	}
-
 	if g.studentGroupService == nil {
 		return fmt.Errorf("student groups not set")
 	}
-
 	if g.studyLoadService == nil {
 		return fmt.Errorf("study load service not set")
 	}
@@ -180,12 +171,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						// встановлення лекції
-						// ЗАГЛУШКА
-						log.Printf("викладач: %s, група: %s, день/слот: %d/%d \n",
-							studyLoad.Teacher.UserName, studentGroup.Name, day, lessonSlot,
-						)
-						// ========
+						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, LessonType{})
 						g.studentGroupService.SetOneSlotBusyness(studentGroup, slot, true)
 						g.teacherService.SetOneSlotBusyness(studyLoad.Teacher, slot, true)
 						success = true
@@ -204,11 +190,15 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 	if g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
 	}
-
 	if g.studentGroupService == nil {
 		return fmt.Errorf("student groups not set")
 	}
 
+	for _, l := range g.lessonService.GetAll() {
+		log.Printf("викладач: %s, група: %s, день/слот: %d/%d \n",
+			l.Teacher.UserName, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
+		)
+	}
 	tw, sgw := CheckWindows(g.teacherService.GetAll(), g.studentGroupService.GetAll())
 	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
 	return nil

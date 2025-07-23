@@ -9,7 +9,7 @@ type StudentGroupController interface {
 	Controller[types.StudentGroup]
 }
 
-func NewStudentGroupController(s services.StudentGroupServise) StudentGroupController {
+func NewStudentGroupController(s services.StudentGroupService) StudentGroupController {
 	sgc := studentGroupController{
 		basicController: basicController[types.StudentGroup]{
 			service:       s,
@@ -23,5 +23,5 @@ func NewStudentGroupController(s services.StudentGroupServise) StudentGroupContr
 
 type studentGroupController struct {
 	basicController[types.StudentGroup]
-	service services.StudentGroupServise
+	service services.StudentGroupService
 }

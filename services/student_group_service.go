@@ -7,21 +7,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type StudentGroupServise interface {
+type StudentGroupService interface {
 	Service[types.StudentGroup]
 }
 
-type studentGroupServise struct {
+type studentGroupService struct {
 	studentGroups []types.StudentGroup
 }
 
-func NewStudentGroupService(studentGroups []types.StudentGroup) StudentGroupServise {
-	sgs := studentGroupServise{studentGroups: studentGroups}
+func NewStudentGroupService(studentGroups []types.StudentGroup) StudentGroupService {
+	sgs := studentGroupService{studentGroups: studentGroups}
 
 	return &sgs
 }
 
-func (sgs *studentGroupServise) Create(group types.StudentGroup) (*types.StudentGroup, error) {
+func (sgs *studentGroupService) Create(group types.StudentGroup) (*types.StudentGroup, error) {
 	if sgs.Find(group.ID) != nil {
 		return nil, fmt.Errorf("student group %s already exists", group.ID.String())
 	}
@@ -30,7 +30,7 @@ func (sgs *studentGroupServise) Create(group types.StudentGroup) (*types.Student
 	return &group, nil
 }
 
-func (sgs *studentGroupServise) Update(group types.StudentGroup) error {
+func (sgs *studentGroupService) Update(group types.StudentGroup) error {
 	g := sgs.Find(group.ID)
 	if g == nil {
 		return fmt.Errorf("student group %s not found", group.ID.String())
@@ -40,7 +40,7 @@ func (sgs *studentGroupServise) Update(group types.StudentGroup) error {
 	return nil
 }
 
-func (sgs *studentGroupServise) Delete(groupId uuid.UUID) error {
+func (sgs *studentGroupService) Delete(groupId uuid.UUID) error {
 	for i, group := range sgs.studentGroups {
 		if group.ID == groupId {
 			sgs.studentGroups = append(sgs.studentGroups[:i], sgs.studentGroups[i+1:]...)
@@ -51,12 +51,12 @@ func (sgs *studentGroupServise) Delete(groupId uuid.UUID) error {
 	return fmt.Errorf("student group %s not found", groupId.String())
 }
 
-func (sgs *studentGroupServise) GetAll() []types.StudentGroup {
+func (sgs *studentGroupService) GetAll() []types.StudentGroup {
 	return sgs.studentGroups
 }
 
 // return will be nil if not found
-func (sgs *studentGroupServise) Find(id uuid.UUID) *types.StudentGroup {
+func (sgs *studentGroupService) Find(id uuid.UUID) *types.StudentGroup {
 	var group *types.StudentGroup
 	for i := range sgs.studentGroups {
 		if sgs.studentGroups[i].ID == id {

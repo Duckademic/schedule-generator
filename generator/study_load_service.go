@@ -12,7 +12,7 @@ type StudyLoad struct {
 }
 
 type DisciplineLoad struct {
-	Discipline Discipline
+	Discipline *Discipline
 	Groups     []*StudentGroup
 	Hours      int
 }
@@ -34,7 +34,7 @@ func NewStudyLoadService(studyLoads []types.StudyLoad, ts TeacherService, sgs St
 
 		for _, disciplineLoad := range studyLoad.Disciplines {
 			dl := DisciplineLoad{
-				Discipline: Discipline{ID: disciplineLoad.DisciplineID},
+				Discipline: &Discipline{ID: disciplineLoad.DisciplineID},
 				Hours:      disciplineLoad.Hours,
 				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
 			}
