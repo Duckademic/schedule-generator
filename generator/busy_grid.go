@@ -57,9 +57,18 @@ func (bg *BusyGrid) CountWindows() (count int) {
 	return
 }
 
+type DayOutError struct {
+	max   int
+	input int
+}
+
+func (d DayOutError) Error() string {
+	return fmt.Sprintf("day %d outside of BusyGrid (%d)", d.input, d.max)
+}
+
 func (bg *BusyGrid) CheckDay(day int) error {
 	if len(bg.Grid) <= day {
-		return fmt.Errorf("day %d outside of BusyGrid (%d)", day, len(bg.Grid))
+		return DayOutError{input: day, max: len(bg.Grid)}
 	}
 
 	return nil
@@ -76,4 +85,13 @@ func (bg *BusyGrid) CheckSlot(slot LessonSlot) error {
 	}
 
 	return nil
+}
+
+func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
+	err := bg.CheckSlot(slot)
+	if err != nil {
+		return true
+	}
+
+	return bg.Grid[slot.Day][slot.Slot]
 }

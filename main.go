@@ -21,12 +21,16 @@ func main() {
 			panic(err)
 		}
 
-		teachers, sGroups, sLoads := INIT()
+		teachers, sGroups, disciplines, sLoads := INIT()
 		err = gen.SetStudentGroups(sGroups)
 		if err != nil {
 			panic(err)
 		}
 		err = gen.SetTeachers(teachers)
+		if err != nil {
+			panic(err)
+		}
+		err = gen.SetDisciplines(disciplines)
 		if err != nil {
 			panic(err)
 		}

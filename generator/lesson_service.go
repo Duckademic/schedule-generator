@@ -25,6 +25,7 @@ type LessonService interface {
 	GetAll() []Lesson
 	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, LessonType)
 	CreateWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, LessonType) error
+	GetWeekLessons(int) []Lesson
 }
 
 func NewLessonService(lessonValue int) (LessonService, error) {
@@ -60,6 +61,10 @@ func (ls *lessonService) CreateWithoutChecks(
 		Slot:         slot,
 		Type:         lType,
 	})
+
+	teacher.SetOneSlotBusyness(slot, true)
+	studentGroup.SetOneSlotBusyness(slot, true)
+	discipline.CurrentHours += ls.lessonValue
 }
 
 func (ls *lessonService) CreateWithChecks(
@@ -69,6 +74,7 @@ func (ls *lessonService) CreateWithChecks(
 	slot LessonSlot,
 	lType LessonType,
 ) error {
+	// загальні перевірки
 	if teacher == nil {
 		return fmt.Errorf("teacher can't be nil")
 	}
@@ -78,8 +84,37 @@ func (ls *lessonService) CreateWithChecks(
 	if discipline == nil {
 		return fmt.Errorf("discipline can't be nil")
 	}
-	// дописати перевірки
+
+	// перевірки викладача
+	if err := teacher.CheckSlot(slot); err != nil {
+		return err
+	}
+	if teacher.IsBusy(slot) {
+		return fmt.Errorf("teacher is busy")
+	}
+
+	// перевірки групи студентів
+	if err := teacher.CheckSlot(slot); err != nil {
+		return err
+	}
+	if studentGroup.IsBusy(slot) {
+		return fmt.Errorf("student group is busy")
+	}
+
+	// перевірки дисципліни
+	if discipline.LoadHours < discipline.CurrentHours+ls.lessonValue {
+		return fmt.Errorf("discipline have enough hours")
+	}
 
 	ls.CreateWithoutChecks(teacher, studentGroup, discipline, slot, lType)
 	return nil
+}
+
+func (ls *lessonService) GetWeekLessons(week int) (res []Lesson) {
+	for _, l := range ls.lessons {
+		if l.Slot.Day/7 == week {
+			res = append(res, l)
+		}
+	}
+	return
 }

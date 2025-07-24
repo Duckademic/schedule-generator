@@ -21,7 +21,12 @@ type StudyLoadService interface {
 	GetAll() []StudyLoad
 }
 
-func NewStudyLoadService(studyLoads []types.StudyLoad, ts TeacherService, sgs StudentGroupService) (StudyLoadService, error) {
+func NewStudyLoadService(
+	studyLoads []types.StudyLoad,
+	ts TeacherService,
+	sgs StudentGroupService,
+	ds DisciplineService,
+) (StudyLoadService, error) {
 	sls := studyLoadService{studyLoads: make([]StudyLoad, len(studyLoads))}
 
 	for i, studyLoad := range studyLoads {
@@ -34,10 +39,11 @@ func NewStudyLoadService(studyLoads []types.StudyLoad, ts TeacherService, sgs St
 
 		for _, disciplineLoad := range studyLoad.Disciplines {
 			dl := DisciplineLoad{
-				Discipline: &Discipline{ID: disciplineLoad.DisciplineID},
+				Discipline: ds.Find(disciplineLoad.DisciplineID),
 				Hours:      disciplineLoad.Hours,
 				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
 			}
+			dl.Discipline.LoadHours += len(disciplineLoad.GroupsID) * dl.Hours
 
 			for j, studentGroupID := range disciplineLoad.GroupsID {
 				dl.Groups[j] = sgs.Find(studentGroupID)

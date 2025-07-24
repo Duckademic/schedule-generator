@@ -6,18 +6,7 @@ import (
 	"time"
 
 	"github.com/Duckademic/schedule-generator/types"
-	"github.com/google/uuid"
 )
-
-// ==============================================================
-
-type Discipline struct {
-	ID   uuid.UUID
-	Name string
-	// Lessons map[string]int // тип - кількість годин
-}
-
-// ==================================================================================
 
 type ScheduleGeneratorConfig struct {
 	LessonsValue       int
@@ -34,6 +23,8 @@ type ScheduleGenerator struct {
 	studentGroupService StudentGroupService
 	studyLoadService    StudyLoadService
 	lessonService       LessonService
+	disciplineService   DisciplineService
+	boneWeek            int
 }
 
 func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
@@ -62,10 +53,6 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 }
 
 func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
-	if len(g.BusyGrid) == 0 {
-		return fmt.Errorf("config not initialized")
-	}
-
 	ts, err := NewTeacherService(teachers, g.BusyGrid)
 	if err != nil {
 		return err
@@ -76,10 +63,6 @@ func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
 }
 
 func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup) error {
-	if len(g.BusyGrid) == 0 {
-		return fmt.Errorf("config not initialized")
-	}
-
 	sgs, err := NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.BusyGrid)
 	if err != nil {
 		return err
@@ -89,15 +72,23 @@ func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup)
 	return nil
 }
 
-func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
-	if g.teacherService == nil {
-		return fmt.Errorf("teachers not set")
-	}
-	if g.studentGroupService == nil {
-		return fmt.Errorf("student groups not set")
+func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error {
+	ds, err := NewDisciplineService(disciplines)
+	if err != nil {
+		return err
 	}
 
-	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService)
+	g.disciplineService = ds
+	return nil
+}
+
+func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
+	err := g.CheckServices([]bool{true, true, true})
+	if err != nil {
+		return err
+	}
+
+	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService)
 	if err != nil {
 		return err
 	}
@@ -106,20 +97,53 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 	return nil
 }
 
-func (g *ScheduleGenerator) GenerateSchedule() error {
-	if g.teacherService == nil {
+func (g *ScheduleGenerator) CheckStudyLoadService() error {
+	if g.studyLoadService == nil {
+		return fmt.Errorf("study load not set")
+	}
+	return nil
+}
+
+// 0 - teacher, 1 - student group, 2 - discipline, 3 - study load
+func (g *ScheduleGenerator) CheckServices(services []bool) error {
+	checks := append(services, make([]bool, 4-len(services))...)
+
+	if checks[0] && g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
 	}
-	if g.studentGroupService == nil {
+
+	if checks[1] && g.studentGroupService == nil {
 		return fmt.Errorf("student groups not set")
 	}
-	if g.studyLoadService == nil {
-		return fmt.Errorf("study load service not set")
+
+	if checks[2] && g.disciplineService == nil {
+		return fmt.Errorf("discipline not set")
 	}
 
-	// номер кісткового тижня
-	mainWeak := 0
+	if checks[3] && g.studyLoadService == nil {
+		return fmt.Errorf("study load not set")
+	}
 
+	return nil
+}
+
+func (g *ScheduleGenerator) GenerateSchedule() error {
+	err := g.CheckServices([]bool{true, true, true, true})
+	if err != nil {
+		return err
+	}
+
+	err = g.generateBoneLectures()
+	if err != nil {
+		return err
+	}
+
+	g.buildLessonCarcass()
+
+	return nil
+}
+
+func (g *ScheduleGenerator) generateBoneLectures() error {
 	for _, studyLoad := range g.studyLoadService.GetAll() {
 		for _, dp := range studyLoad.Disciplines {
 			for _, studentGroup := range dp.Groups {
@@ -128,10 +152,10 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 				for !success {
 					// отримуємо доступний лекційний день
-					day := studentGroup.GetLectureDay(mainWeak*7 + offset)
-					if day > mainWeak*7+7 {
+					day := studentGroup.GetLectureDay(g.boneWeek*7 + offset)
+					if day > g.boneWeek*7+7 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
-						panic("group haven't enough slots for lectures")
+						return fmt.Errorf("group haven't enough slots for lectures")
 					}
 
 					// отримання вільного слота для групи та викладача
@@ -147,7 +171,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 						studyLoad.Teacher.SetOneSlotBusyness(slot, true)
 						success = true
 					}
-					offset = day - mainWeak*7 + 1
+					offset = day - g.boneWeek*7 + 1
 				}
 
 			}
@@ -157,12 +181,36 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	return nil
 }
 
-func (g *ScheduleGenerator) CheckSchedule() error {
-	if g.teacherService == nil {
-		return fmt.Errorf("teachers not set")
+func (g *ScheduleGenerator) buildLessonCarcass() {
+	boneLessons := g.lessonService.GetWeekLessons(g.boneWeek)
+	currentWeek := g.boneWeek + 1
+	outOfGrid := false
+	for !outOfGrid {
+		for _, lesson := range boneLessons {
+			newSlot := LessonSlot{
+				Day:  lesson.Slot.Day + currentWeek*7,
+				Slot: lesson.Slot.Slot,
+			}
+
+			err := g.lessonService.CreateWithChecks(
+				lesson.Teacher,
+				lesson.StudentGroup,
+				lesson.Discipline,
+				newSlot,
+				lesson.Type,
+			)
+			if _, ok := err.(DayOutError); ok {
+				outOfGrid = true
+			}
+		}
+		currentWeek++
 	}
-	if g.studentGroupService == nil {
-		return fmt.Errorf("student groups not set")
+}
+
+func (g *ScheduleGenerator) CheckSchedule() error {
+	err := g.CheckServices([]bool{true, true})
+	if err != nil {
+		return err
 	}
 
 	for _, l := range g.lessonService.GetAll() {
