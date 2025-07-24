@@ -20,14 +20,14 @@ type DisciplineLoad struct {
 // ==============================================================
 
 type StudentGroup struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+	ID   uuid.UUID `json:"id" binding:"required"`
+	Name string    `json:"name" binding:"required,min=4"`
 	// Number string // номер групи (32)
 }
 
 type Teacher struct {
-	ID       uuid.UUID `json:"id"`
-	UserName string    `json:"user_name"`
+	ID       uuid.UUID `json:"id" binding:"required"`
+	UserName string    `json:"user_name" binding:"required,min=4"`
 	// AcademicDegree string // асистент/доцент/професор
 }
 
@@ -38,14 +38,14 @@ type Discipline struct {
 }
 
 type Lesson struct {
-	ID        uuid.UUID  `json:"id"`
-	StartTime time.Time  `json:"start_time"`
-	EndTime   time.Time  `json:"end_time"`
-	Value     int        `json:"value"` // кількість академічних годин
-	Type      LessonType `json:"type"`
+	ID        uuid.UUID  `json:"id" validate:"required"`
+	StartTime time.Time  `json:"start_time" binding:"required"`
+	EndTime   time.Time  `json:"end_time" binding:"required"`
+	Value     int        `json:"value" binding:"required,gt=0"` // кількість академічних годин
+	Type      LessonType `json:"type" binding:"required"`
 	// Gap       int
 }
 
 type LessonType struct {
-	Name string `json:"name"`
+	Name string `json:"name" binding:"required,min=4"`
 }
