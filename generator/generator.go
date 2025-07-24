@@ -17,35 +17,6 @@ type Discipline struct {
 	// Lessons map[string]int // тип - кількість годин
 }
 
-func CheckWindows(teachers []Teacher, groups []StudentGroup) (teacherW, groupW int) {
-	for i := range len(teachers[0].BusyGrid) {
-		for _, t := range teachers {
-			lastBusy := -1
-			for j, isBusy := range t.BusyGrid[i] {
-				if isBusy {
-					if lastBusy != -1 && (j-lastBusy) > 1 {
-						teacherW += j - lastBusy - 1
-					}
-					lastBusy = j
-				}
-			}
-		}
-
-		for _, t := range groups {
-			lastBusy := -1
-			for j, isBusy := range t.BusyGrid[i] {
-				if isBusy {
-					if lastBusy != -1 && (j-lastBusy) > 1 {
-						groupW += j - lastBusy - 1
-					}
-					lastBusy = j
-				}
-			}
-		}
-	}
-	return
-}
-
 // ==================================================================================
 
 type ScheduleGeneratorConfig struct {
@@ -157,7 +128,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 				for !success {
 					// отримуємо доступний лекційний день
-					day := g.studentGroupService.GetLectureDay(studentGroup, mainWeak*7+offset)
+					day := studentGroup.GetLectureDay(mainWeak*7 + offset)
 					if day > mainWeak*7+7 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
 						panic("group haven't enough slots for lectures")
@@ -165,15 +136,15 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 					// отримання вільного слота для групи та викладача
 					lessonSlot := GetFirstFreeSlotForBoth(
-						g.studentGroupService.GetFreeSlots(studentGroup, day),
-						g.teacherService.GetFreeSlots(studyLoad.Teacher, day),
+						studentGroup.GetFreeSlots(day),
+						studyLoad.Teacher.GetFreeSlots(day),
 					)
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
 						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, LessonType{})
-						g.studentGroupService.SetOneSlotBusyness(studentGroup, slot, true)
-						g.teacherService.SetOneSlotBusyness(studyLoad.Teacher, slot, true)
+						studentGroup.SetOneSlotBusyness(slot, true)
+						studyLoad.Teacher.SetOneSlotBusyness(slot, true)
 						success = true
 					}
 					offset = day - mainWeak*7 + 1
@@ -199,7 +170,8 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 			l.Teacher.UserName, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
 		)
 	}
-	tw, sgw := CheckWindows(g.teacherService.GetAll(), g.studentGroupService.GetAll())
+	tw := g.teacherService.CountWindows()
+	sgw := g.studentGroupService.CountWindows()
 	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
 	return nil
 }
