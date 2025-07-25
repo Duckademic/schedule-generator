@@ -5,11 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type DisciplineService interface {
-	GetAll() []Discipline
-	Find(uuid.UUID) *Discipline
-}
-
 type Discipline struct {
 	ID           uuid.UUID
 	Name         string
@@ -20,6 +15,19 @@ type Discipline struct {
 
 func (d *Discipline) EnoughHours() bool {
 	return d.LoadHours <= d.CurrentHours
+}
+
+func (d *Discipline) CountHourDeficit() (count int) {
+	if !d.EnoughHours() {
+		count += d.LoadHours - d.CurrentHours
+	}
+	return
+}
+
+type DisciplineService interface {
+	GetAll() []Discipline
+	Find(uuid.UUID) *Discipline
+	CountHourDeficit() int
 }
 
 func NewDisciplineService(disciplines []types.Discipline) (DisciplineService, error) {
@@ -51,4 +59,11 @@ func (ds *disciplineService) Find(disciplineID uuid.UUID) *Discipline {
 	}
 
 	return nil
+}
+
+func (ds *disciplineService) CountHourDeficit() (count int) {
+	for _, d := range ds.disciplines {
+		count += d.CountHourDeficit()
+	}
+	return
 }
