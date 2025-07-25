@@ -15,6 +15,10 @@ type StudentGroup struct {
 	MaxLessonsPerDay int
 }
 
+func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
+	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || sg.BusyGrid.IsBusy(slot)
+}
+
 // returns -1 if student group hasn't free lecture day
 func (sg *StudentGroup) GetLectureDay(startDay int) int {
 	for i := startDay; i < len(sg.BusyGrid.Grid); i++ {

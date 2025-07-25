@@ -14,8 +14,8 @@ func main() {
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
 			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
-			WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
-			MaxStudentWorkload: 3,
+			WorkLessons:        []int{0, 7, 7, 0, 0, 0, 0},
+			MaxStudentWorkload: 4,
 		})
 		if err != nil {
 			panic(err)
@@ -56,7 +56,7 @@ func main() {
 		Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
 		End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
 		WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
-		MaxStudentWorkload: 3,
+		MaxStudentWorkload: 4,
 	})
 
 	if err != nil {

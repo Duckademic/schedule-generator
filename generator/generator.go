@@ -140,6 +140,11 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 	g.buildLessonCarcass()
 
+	err = g.addMissingLessons()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -166,7 +171,7 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, LessonType{})
+						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, &LessonType{})
 						studentGroup.SetOneSlotBusyness(slot, true)
 						studyLoad.Teacher.SetOneSlotBusyness(slot, true)
 						success = true
@@ -205,6 +210,46 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 		}
 		currentWeek++
 	}
+}
+
+func (g *ScheduleGenerator) addMissingLessons() error {
+	for _, studyLoad := range g.studyLoadService.GetAll() {
+		for _, disciplineLoad := range studyLoad.Disciplines {
+			for _, group := range disciplineLoad.Groups {
+				currentDay := g.boneWeek * 7
+				outOfGrid := false
+				for !disciplineLoad.Discipline.EnoughHours() && !outOfGrid {
+					err := group.CheckDay(currentDay)
+					if err != nil {
+						outOfGrid = true
+						//continue
+						break
+					}
+
+					for i := range g.BusyGrid[currentDay] {
+						slot := LessonSlot{
+							Day:  currentDay,
+							Slot: i,
+						}
+						g.lessonService.CreateWithChecks(
+							studyLoad.Teacher,
+							group,
+							disciplineLoad.Discipline,
+							slot,
+							&LessonType{},
+						)
+					}
+					currentDay++
+				}
+
+				if !disciplineLoad.Discipline.EnoughHours() {
+					return fmt.Errorf("not enough space for %s discipline", disciplineLoad.Discipline.Name)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (g *ScheduleGenerator) CheckSchedule() error {

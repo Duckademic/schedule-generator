@@ -18,6 +18,10 @@ type Discipline struct {
 	// Lessons map[string]int // тип - кількість годин
 }
 
+func (d *Discipline) EnoughHours() bool {
+	return d.LoadHours <= d.CurrentHours
+}
+
 func NewDisciplineService(disciplines []types.Discipline) (DisciplineService, error) {
 	ds := disciplineService{disciplines: make([]Discipline, len(disciplines))}
 

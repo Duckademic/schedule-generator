@@ -15,7 +15,7 @@ type Lesson struct {
 	// ID           uuid.UUID
 	Slot         LessonSlot
 	Value        int // кількість академічних годин
-	Type         LessonType
+	Type         *LessonType
 	Teacher      *Teacher
 	StudentGroup *StudentGroup
 	Discipline   *Discipline
@@ -23,8 +23,8 @@ type Lesson struct {
 
 type LessonService interface {
 	GetAll() []Lesson
-	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, LessonType)
-	CreateWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, LessonType) error
+	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
+	CreateWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
 	GetWeekLessons(int) []Lesson
 }
 
@@ -52,7 +52,7 @@ func (ls *lessonService) CreateWithoutChecks(
 	studentGroup *StudentGroup,
 	discipline *Discipline,
 	slot LessonSlot,
-	lType LessonType,
+	lType *LessonType,
 ) {
 	ls.lessons = append(ls.lessons, Lesson{
 		Teacher:      teacher,
@@ -72,7 +72,7 @@ func (ls *lessonService) CreateWithChecks(
 	studentGroup *StudentGroup,
 	discipline *Discipline,
 	slot LessonSlot,
-	lType LessonType,
+	lType *LessonType,
 ) error {
 	// загальні перевірки
 	if teacher == nil {
@@ -102,7 +102,7 @@ func (ls *lessonService) CreateWithChecks(
 	}
 
 	// перевірки дисципліни
-	if discipline.LoadHours < discipline.CurrentHours+ls.lessonValue {
+	if discipline.EnoughHours() {
 		return fmt.Errorf("discipline have enough hours")
 	}
 
