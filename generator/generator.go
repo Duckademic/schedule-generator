@@ -259,15 +259,16 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 	}
 
 	for _, l := range g.lessonService.GetAll() {
-		log.Printf("викладач: %s, група: %s, день/слот: %d/%d \n",
-			l.Teacher.UserName, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
+		log.Printf("викладач: %s, дисципліна: %s, група: %s, день/слот: %d/%d \n",
+			l.Teacher.UserName, l.Discipline.Name, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
 		)
 	}
 	tw := g.teacherService.CountWindows()
 	sgw := g.studentGroupService.CountWindows()
-	hd := g.disciplineService.CountHourDeficit()
 	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
-	log.Printf("недостача годин: %d", hd)
+	hd := g.disciplineService.CountHourDeficit()
+	lc := len(g.lessonService.GetAll())
+	log.Printf("кількість занять: %d, недостача годин: %d", lc, hd)
 	return nil
 }
 

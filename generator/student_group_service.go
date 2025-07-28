@@ -16,7 +16,47 @@ type StudentGroup struct {
 }
 
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
-	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || sg.BusyGrid.IsBusy(slot)
+	if err := sg.CheckSlot(slot); err != nil {
+		return true
+	}
+
+	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || !sg.GetFreeSlots(slot.Day)[slot.Slot]
+}
+
+func (sg *StudentGroup) GetFreeSlots(day int) (slots []bool) {
+	if err := sg.CheckDay(day); err != nil {
+		return []bool{}
+	}
+
+	slots = make([]bool, len(sg.Grid[day]))
+
+	// випадок, коли ще немає занять
+	if sg.CountLessonsOn(day) == 0 {
+		for i := range slots {
+			slots[i] = true
+		}
+		return
+	}
+
+	for i := range sg.Grid[day] {
+		// пропускаємо 1 елемент щоб далі не виникло помилок
+		if i == 0 {
+			continue
+		}
+
+		// якщо у поточному слоті вже є пара, а у попередньому ні, вписуємо попередній слот як доступний
+		if sg.Grid[day][i] {
+			if !sg.Grid[day][i-1] {
+				slots[i-1] = true
+			}
+			// якщо у слоті немає пари, а у попередньому вона є, то вписуємо поточний слот як доступний
+		} else {
+			if sg.Grid[day][i-1] {
+				slots[i] = true
+			}
+		}
+	}
+	return
 }
 
 // returns -1 if student group hasn't free lecture day
