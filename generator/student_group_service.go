@@ -125,38 +125,6 @@ func (sgs *studentGroupService) GetAll() []StudentGroup {
 	return sgs.studentGroups
 }
 
-// func (sgs *studentGroupService) GetFreeSlots(group *StudentGroup, day int) (slots []bool) {
-// 	slots = make([]bool, len(group.BusyGrid[day]))
-
-// 	// випадок, коли ще немає занять
-// 	if sgs.CountLessonsOn(group, day) == 0 {
-// 		for i := range slots {
-// 			slots[i] = true
-// 		}
-// 		return
-// 	}
-
-// 	for i := range group.BusyGrid[day] {
-// 		// пропускаємо 1 елемент щоб далі не виникло помилок
-// 		if i == 0 {
-// 			continue
-// 		}
-
-// 		// якщо у поточному слоті вже є пара, а у попередньому ні, вписуємо попередній слот як доступний
-// 		if group.BusyGrid[day][i] {
-// 			if !group.BusyGrid[day][i-1] {
-// 				slots[i-1] = true
-// 			}
-// 			// якщо у слоті немає пари, а у попередньому вона є, то вписуємо поточний слот як доступний
-// 		} else {
-// 			if group.BusyGrid[day][i-1] {
-// 				slots[i] = true
-// 			}
-// 		}
-// 	}
-// 	return
-// }
-
 // return will be nil if not found
 func (sgs *studentGroupService) Find(id uuid.UUID) *StudentGroup {
 	for i := range sgs.studentGroups {
