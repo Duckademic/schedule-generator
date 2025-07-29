@@ -9,6 +9,7 @@ import (
 
 type StudentGroup struct {
 	BusyGrid
+	PersonalSchedule
 	ID               uuid.UUID
 	Name             string
 	LectureDays      []int
@@ -86,6 +87,7 @@ type StudentGroupService interface {
 	GetAll() []StudentGroup
 	Find(uuid.UUID) *StudentGroup
 	CountWindows() int
+	WriteSchedule()
 }
 
 type studentGroupService struct {
@@ -104,6 +106,10 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 			MaxLessonsPerDay: maxLessonsPerDay,
 		}
 		sgs.studentGroups[i].BusyGrid = *NewBusyGrid(busyGrid)
+		sgs.studentGroups[i].PersonalSchedule = PersonalSchedule{
+			busyGrid: &sgs.studentGroups[i].BusyGrid,
+			out:      "schedule/" + sgs.studentGroups[i].Name + ".txt",
+		}
 	}
 
 	// if len(sgs.studentGroups) >= 6 {
@@ -141,4 +147,13 @@ func (sgs *studentGroupService) CountWindows() (count int) {
 		count += g.CountWindows()
 	}
 	return
+}
+
+func (sgs *studentGroupService) WriteSchedule() {
+	for _, sg := range sgs.studentGroups {
+		err := sg.WritePS(StringForStudentGroup)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

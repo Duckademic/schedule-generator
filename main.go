@@ -50,6 +50,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		gen.WriteSchedule()
 	}()
 
 	// listenAddr := flag.String("listenaddr", ":8080", "listen address the service is running")

@@ -9,12 +9,14 @@ type Teacher struct {
 	ID       uuid.UUID
 	UserName string
 	BusyGrid
+	PersonalSchedule
 }
 
 type TeacherService interface {
 	Find(uuid.UUID) *Teacher
 	GetAll() []Teacher
 	CountWindows() int
+	WriteSchedule()
 }
 
 type teacherService struct {
@@ -27,6 +29,10 @@ func NewTeacherService(teachers []types.Teacher, busyGrid [][]bool) (TeacherServ
 	for i := range teachers {
 		ts.teachers[i] = Teacher{ID: teachers[i].ID, UserName: teachers[i].UserName}
 		ts.teachers[i].BusyGrid = *NewBusyGrid(busyGrid)
+		ts.teachers[i].PersonalSchedule = PersonalSchedule{
+			busyGrid: &ts.teachers[i].BusyGrid,
+			out:      "schedule/" + ts.teachers[i].UserName + ".txt",
+		}
 	}
 
 	return &ts, nil
@@ -52,4 +58,13 @@ func (ts *teacherService) CountWindows() (count int) {
 		count += t.CountWindows()
 	}
 	return
+}
+
+func (ts *teacherService) WriteSchedule() {
+	for _, teacher := range ts.teachers {
+		err := teacher.WritePS(StringForTeacher)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

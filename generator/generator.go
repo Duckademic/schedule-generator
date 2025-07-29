@@ -172,8 +172,6 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
 						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, &LessonType{})
-						studentGroup.SetOneSlotBusyness(slot, true)
-						studyLoad.Teacher.SetOneSlotBusyness(slot, true)
 						success = true
 					}
 					offset = day - g.boneWeek*7 + 1
@@ -258,11 +256,6 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 		return err
 	}
 
-	for _, l := range g.lessonService.GetAll() {
-		log.Printf("викладач: %s, дисципліна: %s, група: %s, день/слот: %d/%d \n",
-			l.Teacher.UserName, l.Discipline.Name, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
-		)
-	}
 	tw := g.teacherService.CountWindows()
 	sgw := g.studentGroupService.CountWindows()
 	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
@@ -270,6 +263,16 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 	lc := len(g.lessonService.GetAll())
 	log.Printf("кількість занять: %d, недостача годин: %d", lc, hd)
 	return nil
+}
+
+func (g *ScheduleGenerator) WriteSchedule() {
+	// for _, l := range g.lessonService.GetAll() {
+	// 	log.Printf("Generator викладач: %s, дисципліна: %s, група: %s, день/слот: %d/%d \n",
+	// 		l.Teacher.UserName, l.Discipline.Name, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
+	// 	)
+	// }
+	g.teacherService.WriteSchedule()
+	g.studentGroupService.WriteSchedule()
 }
 
 func GetFirstFreeSlotForBoth(first, second []bool) int {

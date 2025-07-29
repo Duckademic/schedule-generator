@@ -21,6 +21,24 @@ type Lesson struct {
 	Discipline   *Discipline
 }
 
+func (l *Lesson) After(other *Lesson) bool {
+	if l.Slot.Day > other.Slot.Day {
+		return true
+	} else if l.Slot.Day < other.Slot.Day {
+		return false
+	} else if l.Slot.Slot > other.Slot.Slot {
+		return true
+	}
+	return false
+}
+
+func StringForTeacher(l *Lesson) string {
+	return fmt.Sprintf("дисципліна: %s, група: %s", l.Discipline.Name, l.StudentGroup.Name)
+}
+func StringForStudentGroup(l *Lesson) string {
+	return fmt.Sprintf("дисципліна: %s, викладач: %s", l.Discipline.Name, l.Teacher.UserName)
+}
+
 type LessonService interface {
 	GetAll() []Lesson
 	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
@@ -54,16 +72,20 @@ func (ls *lessonService) CreateWithoutChecks(
 	slot LessonSlot,
 	lType *LessonType,
 ) {
-	ls.lessons = append(ls.lessons, Lesson{
+	l := Lesson{
 		Teacher:      teacher,
 		StudentGroup: studentGroup,
 		Discipline:   discipline,
 		Slot:         slot,
 		Type:         lType,
-	})
+	}
+
+	ls.lessons = append(ls.lessons, l)
 
 	teacher.SetOneSlotBusyness(slot, true)
+	teacher.InsertLesson(&l)
 	studentGroup.SetOneSlotBusyness(slot, true)
+	studentGroup.InsertLesson(&l)
 	discipline.CurrentHours += ls.lessonValue
 }
 
@@ -94,9 +116,9 @@ func (ls *lessonService) CreateWithChecks(
 	}
 
 	// перевірки групи студентів
-	if err := teacher.CheckSlot(slot); err != nil {
-		return err
-	}
+	// if err := studentGroup.CheckSlot(slot); err != nil {
+	// 	return err
+	// }
 	if studentGroup.IsBusy(slot) {
 		return fmt.Errorf("student group is busy")
 	}
