@@ -32,13 +32,6 @@ func (l *Lesson) After(other *Lesson) bool {
 	return false
 }
 
-func StringForTeacher(l *Lesson) string {
-	return fmt.Sprintf("дисципліна: %s, група: %s", l.Discipline.Name, l.StudentGroup.Name)
-}
-func StringForStudentGroup(l *Lesson) string {
-	return fmt.Sprintf("дисципліна: %s, викладач: %s", l.Discipline.Name, l.Teacher.UserName)
-}
-
 type LessonService interface {
 	GetAll() []Lesson
 	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
@@ -83,9 +76,7 @@ func (ls *lessonService) CreateWithoutChecks(
 	ls.lessons = append(ls.lessons, l)
 
 	teacher.SetOneSlotBusyness(slot, true)
-	teacher.InsertLesson(&l)
 	studentGroup.SetOneSlotBusyness(slot, true)
-	studentGroup.InsertLesson(&l)
 	discipline.CurrentHours += ls.lessonValue
 }
 

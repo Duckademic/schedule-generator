@@ -9,7 +9,6 @@ import (
 
 type StudentGroup struct {
 	BusyGrid
-	PersonalSchedule
 	ID               uuid.UUID
 	Name             string
 	LectureDays      []int
@@ -60,7 +59,7 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []bool) {
 	return
 }
 
-// returns -1 if student group hasn't free lecture day
+// ПЕРЕРОБИТИ returns -1 if student group hasn't free lecture day
 func (sg *StudentGroup) GetLectureDay(startDay int) int {
 	for i := startDay; i < len(sg.BusyGrid.Grid); i++ {
 		if slices.Contains(sg.LectureDays, i%7) {
@@ -73,6 +72,7 @@ func (sg *StudentGroup) GetLectureDay(startDay int) int {
 	return -1
 }
 
+// ПЕРЕРОБИТИ/ВИНЕСТИ в BusyGrid
 func (sg *StudentGroup) CountLessonsOn(day int) (count int) {
 	for _, isBusy := range sg.BusyGrid.Grid[day] {
 		if isBusy {
@@ -87,7 +87,6 @@ type StudentGroupService interface {
 	GetAll() []StudentGroup
 	Find(uuid.UUID) *StudentGroup
 	CountWindows() int
-	WriteSchedule()
 }
 
 type studentGroupService struct {
@@ -106,10 +105,6 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 			MaxLessonsPerDay: maxLessonsPerDay,
 		}
 		sgs.studentGroups[i].BusyGrid = *NewBusyGrid(busyGrid)
-		sgs.studentGroups[i].PersonalSchedule = PersonalSchedule{
-			busyGrid: &sgs.studentGroups[i].BusyGrid,
-			out:      "schedule/" + sgs.studentGroups[i].Name + ".txt",
-		}
 	}
 
 	// if len(sgs.studentGroups) >= 6 {
@@ -131,7 +126,7 @@ func (sgs *studentGroupService) GetAll() []StudentGroup {
 	return sgs.studentGroups
 }
 
-// return will be nil if not found
+// return nil if not found
 func (sgs *studentGroupService) Find(id uuid.UUID) *StudentGroup {
 	for i := range sgs.studentGroups {
 		if sgs.studentGroups[i].ID == id {
@@ -147,13 +142,4 @@ func (sgs *studentGroupService) CountWindows() (count int) {
 		count += g.CountWindows()
 	}
 	return
-}
-
-func (sgs *studentGroupService) WriteSchedule() {
-	for _, sg := range sgs.studentGroups {
-		err := sg.WritePS(StringForStudentGroup)
-		if err != nil {
-			panic(err)
-		}
-	}
 }

@@ -271,8 +271,39 @@ func (g *ScheduleGenerator) WriteSchedule() {
 	// 		l.Teacher.UserName, l.Discipline.Name, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
 	// 	)
 	// }
-	g.teacherService.WriteSchedule()
-	g.studentGroupService.WriteSchedule()
+	tSchedule := make(map[*Teacher]*PersonalSchedule, len(g.teacherService.GetAll()))
+	for i := range g.teacherService.GetAll() {
+		t := &g.teacherService.GetAll()[i]
+		tSchedule[t] = &PersonalSchedule{
+			busyGrid: &t.BusyGrid,
+			out:      "schedule/" + t.UserName + ".txt",
+		}
+	}
+
+	sgSchedule := make(map[*StudentGroup]*PersonalSchedule, len(g.studentGroupService.GetAll()))
+	for i := range g.studentGroupService.GetAll() {
+		sg := &g.studentGroupService.GetAll()[i]
+		sgSchedule[sg] = &PersonalSchedule{
+			busyGrid: &sg.BusyGrid,
+			out:      "schedule/" + sg.Name + ".txt",
+		}
+	}
+
+	for _, l := range g.lessonService.GetAll() {
+		tSchedule[l.Teacher].InsertLesson(&l)
+		sgSchedule[l.StudentGroup].InsertLesson(&l)
+	}
+
+	for _, ps := range tSchedule {
+		ps.WritePS(func(l *Lesson) string {
+			return fmt.Sprintf("дисципліна: %s, група: %s", l.Discipline.Name, l.StudentGroup.Name)
+		})
+	}
+	for _, ps := range sgSchedule {
+		ps.WritePS(func(l *Lesson) string {
+			return fmt.Sprintf("дисципліна: %s, викладач: %s", l.Discipline.Name, l.Teacher.UserName)
+		})
+	}
 }
 
 func GetFirstFreeSlotForBoth(first, second []bool) int {
