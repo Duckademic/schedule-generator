@@ -8,6 +8,16 @@ import (
 )
 
 func main() {
+	wl := [][]float32{
+		{},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{},
+	}
+
 	var gen *generator.ScheduleGenerator
 	func() {
 		log.Println("GENERATING start")
@@ -19,8 +29,8 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
-			WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
+			End:                time.Date(2025, time.April, 15, 0, 0, 0, 0, time.UTC),
+			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
 		})
 		if err != nil {
@@ -67,7 +77,7 @@ func main() {
 	// 	LessonsValue:       2,
 	// 	Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
 	// 	End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
-	// 	WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
+	// 	WorkLessons:        wl,
 	// 	MaxStudentWorkload: 4,
 	// })
 

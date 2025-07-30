@@ -57,5 +57,6 @@ func (ps *PersonalSchedule) WritePS(lessonToString func(*Lesson) string) error {
 			return err
 		}
 	}
+
 	return nil
 }

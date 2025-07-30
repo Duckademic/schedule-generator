@@ -12,13 +12,13 @@ type ScheduleGeneratorConfig struct {
 	LessonsValue       int
 	Start              time.Time
 	End                time.Time
-	WorkLessons        []int // ПОЧАТОК З НЕДІЛІ нд пн вт ср чт пт сб
-	MaxStudentWorkload int   // максимальна кількість пар для студентів на день
+	WorkLessons        [][]float32 // ПОЧАТОК З НЕДІЛІ нд пн вт ср чт пт сб, зберігає коефіцієнти зручності
+	MaxStudentWorkload int         // максимальна кількість пар для студентів на день
 }
 
 type ScheduleGenerator struct {
 	ScheduleGeneratorConfig
-	BusyGrid            [][]bool
+	BusyGrid            [][]float32
 	teacherService      TeacherService
 	studentGroupService StudentGroupService
 	studyLoadService    StudyLoadService
@@ -40,8 +40,11 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 		ScheduleGeneratorConfig: cfg,
 	}
 
+	index := 0
 	for date := cfg.Start; !date.After(cfg.End); date = date.AddDate(0, 0, 1) {
-		scheduleGenerator.BusyGrid = append(scheduleGenerator.BusyGrid, make([]bool, cfg.WorkLessons[date.Weekday()]))
+		scheduleGenerator.BusyGrid = append(scheduleGenerator.BusyGrid, make([]float32, len(cfg.WorkLessons[date.Weekday()])))
+		copy(scheduleGenerator.BusyGrid[index], cfg.WorkLessons[date.Weekday()])
+		index++
 	}
 
 	ls, err := NewLessonService(cfg.LessonsValue)
@@ -189,16 +192,13 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 				for !success {
 					// отримуємо доступний лекційний день
 					day := studentGroup.GetNextDayOfType(dp.LessonType, g.boneWeek*7+offset)
-					if day > g.boneWeek*7+7 {
+					if day > g.boneWeek*7+7 || day < 0 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
 						return fmt.Errorf("group haven't enough slots for lectures")
 					}
 
 					// отримання вільного слота для групи та викладача
-					lessonSlot := GetFirstFreeSlotForBoth(
-						studentGroup.GetFreeSlots(day),
-						studyLoad.Teacher.GetFreeSlots(day),
-					)
+					lessonSlot := studyLoad.Teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
@@ -271,9 +271,9 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 					currentDay = group.GetNextDayOfType(disciplineLoad.LessonType, currentDay+1)
 				}
 
-				if !disciplineLoad.Discipline.EnoughHours() {
-					return fmt.Errorf("not enough space for %s discipline", disciplineLoad.Discipline.Name)
-				}
+				// if !disciplineLoad.Discipline.EnoughHours() {
+				// 	return fmt.Errorf("not enough space for %s discipline", disciplineLoad.Discipline.Name)
+				// }
 			}
 		}
 	}
@@ -335,14 +335,4 @@ func (g *ScheduleGenerator) WriteSchedule() {
 			return fmt.Sprintf("дисципліна: %s, тип: %s, викладач: %s", l.Discipline.Name, l.Type.Name, l.Teacher.UserName)
 		})
 	}
-}
-
-func GetFirstFreeSlotForBoth(first, second []bool) int {
-	min := min(len(first), len(second))
-	for i := range min {
-		if (first[i] == second[i]) && first[i] {
-			return i
-		}
-	}
-	return -1
 }

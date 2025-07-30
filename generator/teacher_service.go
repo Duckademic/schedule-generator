@@ -21,7 +21,7 @@ type teacherService struct {
 	teachers []Teacher
 }
 
-func NewTeacherService(teachers []types.Teacher, busyGrid [][]bool) (TeacherService, error) {
+func NewTeacherService(teachers []types.Teacher, busyGrid [][]float32) (TeacherService, error) {
 	ts := teacherService{teachers: make([]Teacher, len(teachers))}
 
 	for i := range teachers {

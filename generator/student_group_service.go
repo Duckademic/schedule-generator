@@ -17,24 +17,39 @@ type StudentGroup struct {
 }
 
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
-	if err := sg.CheckSlot(slot); err != nil {
+	if err := sg.BusyGrid.CheckSlot(slot); err != nil {
 		return true
 	}
 
-	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || !sg.GetFreeSlots(slot.Day)[slot.Slot]
-}
-
-func (sg *StudentGroup) GetFreeSlots(day int) (slots []bool) {
-	if err := sg.CheckDay(day); err != nil {
-		return []bool{}
+	slotIsBusy := true
+	// якщо поточний слот вільний, то один з сусідніх має бути зайнятим, причому в сітці, або всі вільні
+	if !sg.BusyGrid.IsBusy(LessonSlot{Day: slot.Day, Slot: slot.Slot}) {
+		if sg.CountLessonsOn(slot.Day) == 0 {
+			slotIsBusy = false
+		} else {
+			for _, value := range []int{-1, 1} {
+				tmpSlot := LessonSlot{Day: slot.Day, Slot: slot.Slot + value}
+				if err := sg.CheckSlot(tmpSlot); err == nil && sg.BusyGrid.IsBusy(tmpSlot) {
+					slotIsBusy = false
+				}
+			}
+		}
 	}
 
-	slots = make([]bool, len(sg.Grid[day]))
+	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || slotIsBusy
+}
+
+func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
+	if err := sg.CheckDay(day); err != nil {
+		return []float32{}
+	}
+
+	slots = make([]float32, len(sg.Grid[day]))
 
 	// випадок, коли ще немає занять
 	if sg.CountLessonsOn(day) == 0 {
 		for i := range slots {
-			slots[i] = true
+			slots[i] = sg.Grid[day][i]
 		}
 		return
 	}
@@ -46,14 +61,14 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []bool) {
 		}
 
 		// якщо у поточному слоті вже є пара, а у попередньому ні, вписуємо попередній слот як доступний
-		if sg.Grid[day][i] {
-			if !sg.Grid[day][i-1] {
-				slots[i-1] = true
+		if sg.IsBusy(LessonSlot{Day: day, Slot: i}) {
+			if !sg.IsBusy(LessonSlot{Day: day, Slot: i - 1}) {
+				slots[i-1] = sg.Grid[day][i-1]
 			}
 			// якщо у слоті немає пари, а у попередньому вона є, то вписуємо поточний слот як доступний
 		} else {
-			if sg.Grid[day][i-1] {
-				slots[i] = true
+			if sg.IsBusy(LessonSlot{Day: day, Slot: i - 1}) {
+				slots[i] = sg.Grid[day][i]
 			}
 		}
 	}
@@ -102,7 +117,7 @@ type studentGroupService struct {
 	studentGroups []StudentGroup
 }
 
-func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int, busyGrid [][]bool) (StudentGroupService, error) {
+func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int, busyGrid [][]float32) (StudentGroupService, error) {
 	sgs := studentGroupService{
 		studentGroups: make([]StudentGroup, len(studentGroups)),
 	}
