@@ -58,17 +58,18 @@ func (bg *BusyGrid) CountWindows() (count int) {
 }
 
 type DayOutError struct {
+	min   int
 	max   int
 	input int
 }
 
 func (d DayOutError) Error() string {
-	return fmt.Sprintf("day %d outside of BusyGrid (%d)", d.input, d.max)
+	return fmt.Sprintf("day %d outside of BusyGrid (%d to %d)", d.input, d.min, d.max)
 }
 
 func (bg *BusyGrid) CheckDay(day int) error {
-	if len(bg.Grid) <= day {
-		return DayOutError{input: day, max: len(bg.Grid)}
+	if len(bg.Grid) <= day || day < 0 {
+		return DayOutError{input: day, min: 0, max: len(bg.Grid)}
 	}
 
 	return nil

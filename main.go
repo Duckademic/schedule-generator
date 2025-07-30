@@ -19,8 +19,8 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.April, 15, 0, 0, 0, 0, time.UTC),
-			WorkLessons:        []int{0, 7, 7, 0, 0, 0, 0},
+			End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
+			WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
 			MaxStudentWorkload: 4,
 		})
 		if err != nil {
@@ -66,7 +66,7 @@ func main() {
 	// server, err := NewJSONAPIServer(*listenAddr, generator.ScheduleGeneratorConfig{
 	// 	LessonsValue:       2,
 	// 	Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-	// 	End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
+	// 	End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
 	// 	WorkLessons:        []int{0, 7, 7, 7, 7, 7, 0},
 	// 	MaxStudentWorkload: 4,
 	// })

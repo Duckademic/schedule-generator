@@ -162,22 +162,18 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 }
 
 func (g *ScheduleGenerator) setDayTypes() error {
-	// if len(sgs.studentGroups) >= 6 {
-	// 	sgs.studentGroups[0].LectureDays = []int{1, 2}
-	// 	sgs.studentGroups[1].LectureDays = []int{2, 3}
-	// 	sgs.studentGroups[2].LectureDays = []int{3, 4}
-	// 	sgs.studentGroups[3].LectureDays = []int{4, 5}
-	// 	sgs.studentGroups[4].LectureDays = []int{5, 1}
-	// 	sgs.studentGroups[5].LectureDays = []int{1, 2}
-	// }
-
 	lessonTypes := g.lessonTypeService.GetAll()
 	studentGroups := g.studentGroupService.GetAll()
 
+	first := 0
+	second := 1
 	for i := range lessonTypes {
 		for j := range studentGroups {
-			studentGroups[j].SetDayType(&lessonTypes[i], 1)
-			studentGroups[j].SetDayType(&lessonTypes[i], 2)
+			studentGroups[j].SetDayType(&lessonTypes[i], first+1)
+			studentGroups[j].SetDayType(&lessonTypes[i], second+1)
+
+			first = second
+			second = (second + 1) % 5
 		}
 	}
 	return nil
@@ -272,7 +268,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							disciplineLoad.LessonType,
 						)
 					}
-					currentDay++
+					currentDay = group.GetNextDayOfType(disciplineLoad.LessonType, currentDay+1)
 				}
 
 				if !disciplineLoad.Discipline.EnoughHours() {
