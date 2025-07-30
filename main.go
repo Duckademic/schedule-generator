@@ -8,13 +8,15 @@ import (
 )
 
 func main() {
+	var gen *generator.ScheduleGenerator
 	func() {
 		log.Println("GENERATING start")
 		defer func(start time.Time) {
 			log.Println("GENERATING finished " + time.Since(start).String())
 		}(time.Now())
 
-		gen, err := generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
+		var err error
+		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
 			End:                time.Date(2025, time.April, 15, 0, 0, 0, 0, time.UTC),
@@ -25,7 +27,7 @@ func main() {
 			panic(err)
 		}
 
-		teachers, sGroups, disciplines, sLoads := INIT()
+		teachers, sGroups, disciplines, sLoads, lTypes := INIT()
 		err = gen.SetStudentGroups(sGroups)
 		if err != nil {
 			panic(err)
@@ -35,6 +37,10 @@ func main() {
 			panic(err)
 		}
 		err = gen.SetDisciplines(disciplines)
+		if err != nil {
+			panic(err)
+		}
+		err = gen.SetLessonTypes(lTypes)
 		if err != nil {
 			panic(err)
 		}
@@ -50,9 +56,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
-		gen.WriteSchedule()
 	}()
+	gen.WriteSchedule()
 
 	// listenAddr := flag.String("listenaddr", ":8080", "listen address the service is running")
 	// flag.Parse()

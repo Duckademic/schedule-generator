@@ -15,6 +15,7 @@ type DisciplineLoad struct {
 	DisciplineID uuid.UUID
 	GroupsID     []uuid.UUID
 	Hours        int
+	LessonTypeID uuid.UUID
 }
 
 // ==============================================================
@@ -48,5 +49,6 @@ type Lesson struct {
 }
 
 type LessonType struct {
-	Name string `json:"name" binding:"required,min=4"`
+	ID   uuid.UUID `json:"id" binding:"required"`
+	Name string    `json:"name" binding:"required,min=4"`
 }

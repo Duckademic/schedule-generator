@@ -24,6 +24,7 @@ type ScheduleGenerator struct {
 	studyLoadService    StudyLoadService
 	lessonService       LessonService
 	disciplineService   DisciplineService
+	lessonTypeService   LessonTypeService
 	boneWeek            int
 }
 
@@ -82,13 +83,23 @@ func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error
 	return nil
 }
 
-func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
-	err := g.CheckServices([]bool{true, true, true})
+func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
+	lts, err := NewLessonTypeService(lTypes)
 	if err != nil {
 		return err
 	}
 
-	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService)
+	g.lessonTypeService = lts
+	return nil
+}
+
+func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
+	err := g.CheckServices([]bool{true, true, true, false, true})
+	if err != nil {
+		return err
+	}
+
+	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService, g.lessonTypeService)
 	if err != nil {
 		return err
 	}
@@ -97,16 +108,9 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 	return nil
 }
 
-func (g *ScheduleGenerator) CheckStudyLoadService() error {
-	if g.studyLoadService == nil {
-		return fmt.Errorf("study load not set")
-	}
-	return nil
-}
-
-// 0 - teacher, 1 - student group, 2 - discipline, 3 - study load
+// 0 - teacher, 1 - student group, 2 - discipline, 3 - study load, 4 - lesson type service
 func (g *ScheduleGenerator) CheckServices(services []bool) error {
-	checks := append(services, make([]bool, 4-len(services))...)
+	checks := append(services, make([]bool, 5-len(services))...)
 
 	if checks[0] && g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
@@ -124,11 +128,20 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 		return fmt.Errorf("study load not set")
 	}
 
+	if checks[4] && g.lessonTypeService == nil {
+		return fmt.Errorf("lesson types not set")
+	}
+
 	return nil
 }
 
 func (g *ScheduleGenerator) GenerateSchedule() error {
 	err := g.CheckServices([]bool{true, true, true, true})
+	if err != nil {
+		return err
+	}
+
+	err = g.setLectureDays()
 	if err != nil {
 		return err
 	}
@@ -144,6 +157,11 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (g *ScheduleGenerator) setLectureDays() error {
 
 	return nil
 }
@@ -171,7 +189,7 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, &LessonType{})
+						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, dp.LessonType)
 						success = true
 					}
 					offset = day - g.boneWeek*7 + 1
@@ -234,7 +252,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							group,
 							disciplineLoad.Discipline,
 							slot,
-							&LessonType{},
+							disciplineLoad.LessonType,
 						)
 					}
 					currentDay++
@@ -296,12 +314,12 @@ func (g *ScheduleGenerator) WriteSchedule() {
 
 	for _, ps := range tSchedule {
 		ps.WritePS(func(l *Lesson) string {
-			return fmt.Sprintf("дисципліна: %s, група: %s", l.Discipline.Name, l.StudentGroup.Name)
+			return fmt.Sprintf("дисципліна: %s, тип: %s, група: %s", l.Discipline.Name, l.Type.Name, l.StudentGroup.Name)
 		})
 	}
 	for _, ps := range sgSchedule {
 		ps.WritePS(func(l *Lesson) string {
-			return fmt.Sprintf("дисципліна: %s, викладач: %s", l.Discipline.Name, l.Teacher.UserName)
+			return fmt.Sprintf("дисципліна: %s, тип: %s, викладач: %s", l.Discipline.Name, l.Type.Name, l.Teacher.UserName)
 		})
 	}
 }

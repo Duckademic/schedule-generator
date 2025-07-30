@@ -2,10 +2,6 @@ package generator
 
 import "fmt"
 
-type LessonType struct {
-	Name string
-}
-
 type LessonSlot struct {
 	Day  int
 	Slot int

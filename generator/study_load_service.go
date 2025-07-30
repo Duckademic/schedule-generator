@@ -15,6 +15,7 @@ type DisciplineLoad struct {
 	Discipline *Discipline
 	Groups     []*StudentGroup
 	Hours      int
+	LessonType *LessonType
 }
 
 type StudyLoadService interface {
@@ -26,6 +27,7 @@ func NewStudyLoadService(
 	ts TeacherService,
 	sgs StudentGroupService,
 	ds DisciplineService,
+	lts LessonTypeService,
 ) (StudyLoadService, error) {
 	sls := studyLoadService{studyLoads: make([]StudyLoad, len(studyLoads))}
 
@@ -42,6 +44,13 @@ func NewStudyLoadService(
 				Discipline: ds.Find(disciplineLoad.DisciplineID),
 				Hours:      disciplineLoad.Hours,
 				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
+				LessonType: lts.Find(disciplineLoad.LessonTypeID),
+			}
+			if dl.Discipline == nil {
+				return nil, fmt.Errorf("discipline %s not found", disciplineLoad.DisciplineID)
+			}
+			if dl.LessonType == nil {
+				return nil, fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
 			}
 			dl.Discipline.LoadHours += len(disciplineLoad.GroupsID) * dl.Hours
 
