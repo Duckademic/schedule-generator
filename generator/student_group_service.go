@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Duckademic/schedule-generator/types"
@@ -11,8 +12,8 @@ type StudentGroup struct {
 	BusyGrid
 	ID               uuid.UUID
 	Name             string
-	LectureDays      []int
 	MaxLessonsPerDay int
+	DaysOfType       map[*LessonType][]int
 }
 
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
@@ -59,10 +60,14 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []bool) {
 	return
 }
 
-// ПЕРЕРОБИТИ returns -1 if student group hasn't free lecture day
-func (sg *StudentGroup) GetLectureDay(startDay int) int {
-	for i := startDay; i < len(sg.BusyGrid.Grid); i++ {
-		if slices.Contains(sg.LectureDays, i%7) {
+// returns -1 if student group hasn't free day
+func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
+	if len(sg.DaysOfType[lType]) == 0 {
+		return -1
+	}
+
+	for i := startDay; i < len(sg.Grid); i++ {
+		if slices.Contains(sg.DaysOfType[lType], i%7) {
 			if sg.CountLessonsOn(i) < sg.MaxLessonsPerDay {
 				return i
 			}
@@ -72,15 +77,19 @@ func (sg *StudentGroup) GetLectureDay(startDay int) int {
 	return -1
 }
 
-// ПЕРЕРОБИТИ/ВИНЕСТИ в BusyGrid
-func (sg *StudentGroup) CountLessonsOn(day int) (count int) {
-	for _, isBusy := range sg.BusyGrid.Grid[day] {
-		if isBusy {
-			count++
-		}
+func (sg *StudentGroup) SetDayType(lType *LessonType, day int) error {
+	if day < 0 || day > 6 {
+		return fmt.Errorf("day %d out of range (%d to %d)", day, 0, 6)
 	}
 
-	return
+	days := sg.DaysOfType[lType]
+	if slices.Contains(days, day) {
+		return fmt.Errorf("day %d already typed as %s", day, lType.Name)
+	}
+
+	sg.DaysOfType[lType] = append(days, day)
+	slices.Sort(sg.DaysOfType[lType])
+	return nil
 }
 
 type StudentGroupService interface {
@@ -103,20 +112,9 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 			ID:               studentGroups[i].ID,
 			Name:             studentGroups[i].Name,
 			MaxLessonsPerDay: maxLessonsPerDay,
+			DaysOfType:       map[*LessonType][]int{},
 		}
 		sgs.studentGroups[i].BusyGrid = *NewBusyGrid(busyGrid)
-	}
-
-	// if len(sgs.studentGroups) >= 6 {
-	// 	sgs.studentGroups[0].LectureDays = []int{1, 2}
-	// 	sgs.studentGroups[1].LectureDays = []int{2, 3}
-	// 	sgs.studentGroups[2].LectureDays = []int{3, 4}
-	// 	sgs.studentGroups[3].LectureDays = []int{4, 5}
-	// 	sgs.studentGroups[4].LectureDays = []int{5, 1}
-	// 	sgs.studentGroups[5].LectureDays = []int{1, 2}
-	// }
-	for i := range studentGroups {
-		sgs.studentGroups[i].LectureDays = []int{1, 2}
 	}
 
 	return &sgs, nil

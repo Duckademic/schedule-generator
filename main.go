@@ -48,6 +48,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
 		err = gen.GenerateSchedule()
 		if err != nil {
 			panic(err)

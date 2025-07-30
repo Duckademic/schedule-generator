@@ -12,6 +12,7 @@ type LessonType struct {
 
 type LessonTypeService interface {
 	Find(uuid.UUID) *LessonType
+	GetAll() []LessonType
 }
 
 func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) {
@@ -40,4 +41,8 @@ func (lts *lessonTypeService) Find(id uuid.UUID) *LessonType {
 		}
 	}
 	return nil
+}
+
+func (lts *lessonTypeService) GetAll() []LessonType {
+	return lts.lessonTypes
 }

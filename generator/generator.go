@@ -141,7 +141,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return err
 	}
 
-	err = g.setLectureDays()
+	err = g.setDayTypes()
 	if err != nil {
 		return err
 	}
@@ -161,8 +161,25 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	return nil
 }
 
-func (g *ScheduleGenerator) setLectureDays() error {
+func (g *ScheduleGenerator) setDayTypes() error {
+	// if len(sgs.studentGroups) >= 6 {
+	// 	sgs.studentGroups[0].LectureDays = []int{1, 2}
+	// 	sgs.studentGroups[1].LectureDays = []int{2, 3}
+	// 	sgs.studentGroups[2].LectureDays = []int{3, 4}
+	// 	sgs.studentGroups[3].LectureDays = []int{4, 5}
+	// 	sgs.studentGroups[4].LectureDays = []int{5, 1}
+	// 	sgs.studentGroups[5].LectureDays = []int{1, 2}
+	// }
 
+	lessonTypes := g.lessonTypeService.GetAll()
+	studentGroups := g.studentGroupService.GetAll()
+
+	for i := range lessonTypes {
+		for j := range studentGroups {
+			studentGroups[j].SetDayType(&lessonTypes[i], 1)
+			studentGroups[j].SetDayType(&lessonTypes[i], 2)
+		}
+	}
 	return nil
 }
 
@@ -175,7 +192,7 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 
 				for !success {
 					// отримуємо доступний лекційний день
-					day := studentGroup.GetLectureDay(g.boneWeek*7 + offset)
+					day := studentGroup.GetNextDayOfType(dp.LessonType, g.boneWeek*7+offset)
 					if day > g.boneWeek*7+7 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
 						return fmt.Errorf("group haven't enough slots for lectures")

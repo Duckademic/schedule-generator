@@ -95,3 +95,13 @@ func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
 
 	return bg.Grid[slot.Day][slot.Slot]
 }
+
+func (bg *BusyGrid) CountLessonsOn(day int) (count int) {
+	for _, isBusy := range bg.Grid[day] {
+		if isBusy {
+			count++
+		}
+	}
+
+	return
+}
