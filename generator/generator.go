@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/Duckademic/schedule-generator/types"
@@ -103,9 +104,52 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 		return err
 	}
 
-	err = LoadStudyLoads(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService, g.lessonTypeService)
-	if err != nil {
-		return err
+	for _, studyLoad := range studyLoads {
+		teacher := g.teacherService.Find(studyLoad.TeacherID)
+		if teacher == nil {
+			return fmt.Errorf("teacher %s not found", studyLoad.TeacherID)
+		}
+
+		for _, disciplineLoad := range studyLoad.Disciplines {
+			discipline := g.disciplineService.Find(disciplineLoad.DisciplineID)
+			if discipline == nil {
+				return fmt.Errorf("discipline %s not found", disciplineLoad.DisciplineID)
+			}
+			lessonType := g.lessonTypeService.Find(disciplineLoad.LessonTypeID)
+			if lessonType == nil {
+				return fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
+			}
+
+			dl := DisciplineLoad{
+				Teacher:    teacher,
+				LoadHours:  len(disciplineLoad.GroupsID) * disciplineLoad.Hours,
+				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
+				LessonType: lessonType,
+			}
+
+			tl := TeacherLoad{
+				Discipline: discipline,
+				LessonType: lessonType,
+				Groups:     dl.Groups,
+			}
+
+			for j, studentGroupID := range disciplineLoad.GroupsID {
+				studentGroup := g.studentGroupService.Find(studentGroupID)
+				if studentGroup == nil {
+					return fmt.Errorf("student group %s not found", studentGroupID)
+				}
+				studentGroup.AddDayType(lessonType, disciplineLoad.Hours)
+
+				dl.Groups[j] = studentGroup
+			}
+
+			if err := discipline.AddLoad(&dl); err != nil {
+				return err
+			}
+			if err := teacher.AddLoad(&tl); err != nil {
+				return err
+			}
+		}
 	}
 
 	g.studyLoadSet = true
@@ -161,50 +205,76 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 }
 
 func (g *ScheduleGenerator) setDayTypes() error {
-	lessonTypes := g.lessonTypeService.GetAll()
 	studentGroups := g.studentGroupService.GetAll()
 
-	first := 0
-	second := 1
-	for i := range lessonTypes {
-		for j := range studentGroups {
-			studentGroups[j].SetDayType(&lessonTypes[i], first+1)
-			studentGroups[j].SetDayType(&lessonTypes[i], second+1)
+	type groupExtension struct {
+		group         *StudentGroup
+		dayPriorities []float32
+		countOfSlots  []int
+		freeDayCount  int
+	}
 
-			first = second
-			second = (second + 1) % 5
+	newGroupExtension := func(group *StudentGroup) *groupExtension {
+		ge := groupExtension{
+			group:         group,
+			dayPriorities: group.GetWeekDaysPriority(),
+			countOfSlots:  make([]int, 7),
 		}
+
+		for day, value := range ge.dayPriorities {
+			if value > 1 {
+				ge.freeDayCount++
+			}
+			ge.countOfSlots[day] = ge.group.CountSlotsAtDay(day)
+		}
+
+		return &ge
+	}
+
+	groupExtensions := make([]groupExtension, len(studentGroups))
+	for i := range studentGroups {
+		groupExtensions[i] = *newGroupExtension(&studentGroups[i])
+	}
+	slices.SortFunc(groupExtensions, func(a, b groupExtension) int {
+		if a.freeDayCount == b.freeDayCount {
+			return 0
+		} else if a.freeDayCount > b.freeDayCount {
+			return 1
+		}
+		return -1
+	})
+
+	lessonTypes := g.lessonTypeService.GetAll()
+	for lessonTypeIndex := range lessonTypes {
+		lType := &lessonTypes[lessonTypeIndex]
+		dayOccupationsCount := make([]float32, 7)
+
+		currentMaxHours := 0
+		for groupIndex := 0; groupIndex < len(groupExtensions); groupIndex++ {
+			group := groupExtensions[groupIndex]
+			var min float32 = 1000000000
+			mIndex := -1
+			for j := range 7 {
+				futureOccupation := dayOccupationsCount[j] + group.dayPriorities[j]
+				if min > futureOccupation && group.dayPriorities[j] > 1 {
+					min = futureOccupation
+					mIndex = j
+				}
+			}
+
+			group.group.SetDayType(lType, mIndex)
+			dayOccupationsCount[mIndex] += group.dayPriorities[mIndex]
+			currentMaxHours += int(float64(group.countOfSlots[mIndex]*g.LessonsValue) * g.FillPercentage)
+			if currentMaxHours < group.group.GetMaxHours(lType) {
+				groupIndex--
+			} else {
+				currentMaxHours = 0
+			}
+		}
+		log.Println(dayOccupationsCount)
 	}
 
 	return nil
-
-	// type groupExtension struct {
-	// 	group         *StudentGroup
-	// 	dayPriorities []float32
-	// 	dayCount      int
-	// }
-
-	// newGroupExtension := func(group *StudentGroup) *groupExtension {
-	// 	ge := groupExtension{
-	// 		group:         group,
-	// 		dayPriorities: group.GetWeekDaysPriority(),
-	// 	}
-
-	// 	for _, value := range ge.dayPriorities {
-	// 		if value > 0 {
-	// 			ge.dayCount++
-	// 		}
-	// 	}
-
-	// 	return &ge
-	// }
-
-	// groupExtensions := make([]groupExtension, len(studentGroups))
-	// for i := range studentGroups {
-	// 	groupExtensions[i] = *newGroupExtension(&studentGroups[i])
-	// }
-
-	// return nil
 }
 
 func (g *ScheduleGenerator) generateBoneLectures() error {
@@ -222,8 +292,9 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 					// отримуємо доступний лекційний день
 					day := studentGroup.GetNextDayOfType(teacherLoad.LessonType, g.boneWeek*7+offset)
 					if day > g.boneWeek*7+7 || day < 0 {
+						break
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
-						return fmt.Errorf("group haven't enough slots for lectures")
+						// return fmt.Errorf("group haven't enough slots for lectures")
 					}
 
 					// отримання вільного слота для групи та викладача

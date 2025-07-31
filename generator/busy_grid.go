@@ -155,3 +155,19 @@ func (bg *BusyGrid) GetWeekDaysPriority() (result []float32) {
 	}
 	return
 }
+
+func (bg *BusyGrid) CountSlotsAtDay(day int) (count int) {
+	if day < 0 || day > 6 {
+		return
+	}
+
+	for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
+		currentDay := day + week*7
+		for slot := range bg.Grid[currentDay] {
+			if !bg.IsBusy(LessonSlot{Day: currentDay, Slot: slot}) {
+				count++
+			}
+		}
+	}
+	return
+}

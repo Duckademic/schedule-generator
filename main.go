@@ -32,7 +32,7 @@ func main() {
 			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
-			FillPercentage:     1.2,
+			FillPercentage:     1,
 		})
 		if err != nil {
 			panic(err)

@@ -8,12 +8,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type StudentGroupLoad struct {
+	Days  []int
+	Hours int
+}
+
 type StudentGroup struct {
 	BusyGrid
 	ID               uuid.UUID
 	Name             string
 	MaxLessonsPerDay int
-	DaysOfType       map[*LessonType][]int
+	DaysOfType       map[*LessonType]*StudentGroupLoad
 }
 
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
@@ -37,6 +42,27 @@ func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
 	}
 
 	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || slotIsBusy
+}
+
+func (sg *StudentGroup) CountSlotsAtDay(day int) (count int) {
+	if day < 0 || day > 6 {
+		return
+	}
+
+	for week := 0; sg.CheckDay(day+week*7) == nil; week++ {
+		currentDay := day + week*7
+		delta := 0
+		for slot := range sg.Grid[currentDay] {
+			if !sg.IsBusy(LessonSlot{Day: currentDay, Slot: slot}) {
+				delta++
+			}
+		}
+		if delta > sg.MaxLessonsPerDay {
+			delta = sg.MaxLessonsPerDay
+		}
+		count += delta
+	}
+	return
 }
 
 func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
@@ -77,12 +103,12 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 
 // returns -1 if student group hasn't free day
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
-	if len(sg.DaysOfType[lType]) == 0 {
+	if len(sg.DaysOfType[lType].Days) == 0 {
 		return -1
 	}
 
 	for i := startDay; i < len(sg.Grid); i++ {
-		if slices.Contains(sg.DaysOfType[lType], i%7) {
+		if slices.Contains(sg.DaysOfType[lType].Days, i%7) {
 			if sg.CountLessonsOn(i) < sg.MaxLessonsPerDay {
 				return i
 			}
@@ -92,18 +118,42 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	return -1
 }
 
+func (sg *StudentGroup) GetMaxHours(lType *LessonType) int {
+	if sgl, ok := sg.DaysOfType[lType]; ok {
+		return sgl.Hours
+	}
+	return 0
+}
+
+func (sg *StudentGroup) AddDayType(lType *LessonType, hours int) error {
+	if lType == nil {
+		return fmt.Errorf("lesson type is nil")
+	}
+
+	_, ok := sg.DaysOfType[lType]
+	if !ok {
+		sg.DaysOfType[lType] = &StudentGroupLoad{}
+	}
+
+	sg.DaysOfType[lType].Hours += hours
+	return nil
+}
+
 func (sg *StudentGroup) SetDayType(lType *LessonType, day int) error {
 	if day < 0 || day > 6 {
 		return fmt.Errorf("day %d out of range (%d to %d)", day, 0, 6)
 	}
 
-	days := sg.DaysOfType[lType]
-	if slices.Contains(days, day) {
+	load, ok := sg.DaysOfType[lType]
+	if !ok {
+		return fmt.Errorf("type %s not found", lType.Name)
+	}
+	if slices.Contains(load.Days, day) {
 		return fmt.Errorf("day %d already typed as %s", day, lType.Name)
 	}
 
-	sg.DaysOfType[lType] = append(days, day)
-	slices.Sort(sg.DaysOfType[lType])
+	load.Days = append(load.Days, day)
+	slices.Sort(load.Days)
 	return nil
 }
 
@@ -127,7 +177,7 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 			ID:               studentGroups[i].ID,
 			Name:             studentGroups[i].Name,
 			MaxLessonsPerDay: maxLessonsPerDay,
-			DaysOfType:       map[*LessonType][]int{},
+			DaysOfType:       map[*LessonType]*StudentGroupLoad{},
 		}
 		sgs.studentGroups[i].BusyGrid = *NewBusyGrid(busyGrid)
 	}
