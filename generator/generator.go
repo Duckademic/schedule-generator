@@ -247,31 +247,35 @@ func (g *ScheduleGenerator) setDayTypes() error {
 	lessonTypes := g.lessonTypeService.GetAll()
 	for lessonTypeIndex := range lessonTypes {
 		lType := &lessonTypes[lessonTypeIndex]
-		dayOccupationsCount := make([]float32, 7)
+		dayOccupationsCount := make([]int, 7)
 
-		currentMaxHours := 0
-		for groupIndex := 0; groupIndex < len(groupExtensions); groupIndex++ {
-			group := groupExtensions[groupIndex]
-			var min float32 = 1000000000
-			mIndex := -1
-			for j := range 7 {
-				futureOccupation := dayOccupationsCount[j] + group.dayPriorities[j]
-				if min > futureOccupation && group.dayPriorities[j] > 1 {
-					min = futureOccupation
-					mIndex = j
+		for _, group := range groupExtensions {
+			currentMaxHours := 0
+			availableDays := []int{0, 1, 2, 3, 4, 5, 6}
+
+			for currentMaxHours < group.group.GetMaxHours(lType) {
+				min := 1000000000
+				mIndex := -1
+				for j := range availableDays {
+					if min > dayOccupationsCount[j] && group.dayPriorities[j] > 1.0 {
+						min = dayOccupationsCount[j]
+						mIndex = j
+					}
 				}
-			}
 
-			group.group.SetDayType(lType, mIndex)
-			dayOccupationsCount[mIndex] += group.dayPriorities[mIndex]
-			currentMaxHours += int(float64(group.countOfSlots[mIndex]*g.LessonsValue) * g.FillPercentage)
-			if currentMaxHours < group.group.GetMaxHours(lType) {
-				groupIndex--
-			} else {
-				currentMaxHours = 0
+				if mIndex == -1 {
+					return fmt.Errorf("can't add a day of type %s to group %s", lType.Name, group.group.Name)
+				}
+				err := group.group.SetDayType(lType, mIndex)
+				if err != nil {
+					dayIndex := slices.Index(availableDays, mIndex)
+					availableDays = append(availableDays[:dayIndex], availableDays[dayIndex+1:]...)
+					continue
+				}
+				dayOccupationsCount[mIndex]++
+				currentMaxHours += int(float64(group.countOfSlots[mIndex]*g.LessonsValue) * g.FillPercentage)
 			}
 		}
-		log.Println(dayOccupationsCount)
 	}
 
 	return nil
