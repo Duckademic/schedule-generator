@@ -5,10 +5,22 @@ import (
 	"github.com/google/uuid"
 )
 
+type TeacherLoad struct {
+	Discipline *Discipline
+	Groups     []*StudentGroup
+	LessonType *LessonType
+}
+
 type Teacher struct {
+	BusyGrid
 	ID       uuid.UUID
 	UserName string
-	BusyGrid
+	Load     []TeacherLoad
+}
+
+func (t *Teacher) AddLoad(tl *TeacherLoad) error {
+	t.Load = append(t.Load, *tl)
+	return nil
 }
 
 type TeacherService interface {

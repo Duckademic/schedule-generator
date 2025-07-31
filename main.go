@@ -29,9 +29,10 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.April, 15, 0, 0, 0, 0, time.UTC),
+			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
+			FillPercentage:     1.2,
 		})
 		if err != nil {
 			panic(err)
@@ -63,11 +64,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err = gen.CheckSchedule()
-		if err != nil {
-			panic(err)
-		}
 	}()
+	gen.CheckSchedule()
 	gen.WriteSchedule()
 
 	// listenAddr := flag.String("listenaddr", ":8080", "listen address the service is running")

@@ -14,6 +14,7 @@ type ScheduleGeneratorConfig struct {
 	End                time.Time
 	WorkLessons        [][]float32 // ПОЧАТОК З НЕДІЛІ нд пн вт ср чт пт сб, зберігає коефіцієнти зручності
 	MaxStudentWorkload int         // максимальна кількість пар для студентів на день
+	FillPercentage     float64     // відсоток заповненості типом пар для визначення кількості днів
 }
 
 type ScheduleGenerator struct {
@@ -21,11 +22,11 @@ type ScheduleGenerator struct {
 	BusyGrid            [][]float32
 	teacherService      TeacherService
 	studentGroupService StudentGroupService
-	studyLoadService    StudyLoadService
 	lessonService       LessonService
 	disciplineService   DisciplineService
 	lessonTypeService   LessonTypeService
 	boneWeek            int
+	studyLoadSet        bool
 }
 
 func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
@@ -97,23 +98,23 @@ func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
 }
 
 func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
-	err := g.CheckServices([]bool{true, true, true, false, true})
+	err := g.CheckServices([]bool{true, true, true, true})
 	if err != nil {
 		return err
 	}
 
-	sls, err := NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService, g.lessonTypeService)
+	err = LoadStudyLoads(studyLoads, g.teacherService, g.studentGroupService, g.disciplineService, g.lessonTypeService)
 	if err != nil {
 		return err
 	}
 
-	g.studyLoadService = sls
+	g.studyLoadSet = true
 	return nil
 }
 
-// 0 - teacher, 1 - student group, 2 - discipline, 3 - study load, 4 - lesson type service
+// 0 - teacher, 1 - student group, 2 - discipline, 3 - lesson type service
 func (g *ScheduleGenerator) CheckServices(services []bool) error {
-	checks := append(services, make([]bool, 5-len(services))...)
+	checks := append(services, make([]bool, 4-len(services))...)
 
 	if checks[0] && g.teacherService == nil {
 		return fmt.Errorf("teachers not set")
@@ -127,11 +128,7 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 		return fmt.Errorf("discipline not set")
 	}
 
-	if checks[3] && g.studyLoadService == nil {
-		return fmt.Errorf("study load not set")
-	}
-
-	if checks[4] && g.lessonTypeService == nil {
+	if checks[3] && g.lessonTypeService == nil {
 		return fmt.Errorf("lesson types not set")
 	}
 
@@ -139,12 +136,11 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 }
 
 func (g *ScheduleGenerator) GenerateSchedule() error {
-	err := g.CheckServices([]bool{true, true, true, true})
-	if err != nil {
-		return err
+	if !g.studyLoadSet {
+		return fmt.Errorf("study loads not set")
 	}
 
-	err = g.setDayTypes()
+	err := g.setDayTypes()
 	if err != nil {
 		return err
 	}
@@ -179,30 +175,63 @@ func (g *ScheduleGenerator) setDayTypes() error {
 			second = (second + 1) % 5
 		}
 	}
+
 	return nil
+
+	// type groupExtension struct {
+	// 	group         *StudentGroup
+	// 	dayPriorities []float32
+	// 	dayCount      int
+	// }
+
+	// newGroupExtension := func(group *StudentGroup) *groupExtension {
+	// 	ge := groupExtension{
+	// 		group:         group,
+	// 		dayPriorities: group.GetWeekDaysPriority(),
+	// 	}
+
+	// 	for _, value := range ge.dayPriorities {
+	// 		if value > 0 {
+	// 			ge.dayCount++
+	// 		}
+	// 	}
+
+	// 	return &ge
+	// }
+
+	// groupExtensions := make([]groupExtension, len(studentGroups))
+	// for i := range studentGroups {
+	// 	groupExtensions[i] = *newGroupExtension(&studentGroups[i])
+	// }
+
+	// return nil
 }
 
 func (g *ScheduleGenerator) generateBoneLectures() error {
-	for _, studyLoad := range g.studyLoadService.GetAll() {
-		for _, dp := range studyLoad.Disciplines {
-			for _, studentGroup := range dp.Groups {
+	teachers := g.teacherService.GetAll()
+
+	for i := range teachers {
+		teacher := &teachers[i]
+
+		for _, teacherLoad := range teacher.Load {
+			for _, studentGroup := range teacherLoad.Groups {
 				offset := 0
 				success := false
 
 				for !success {
 					// отримуємо доступний лекційний день
-					day := studentGroup.GetNextDayOfType(dp.LessonType, g.boneWeek*7+offset)
+					day := studentGroup.GetNextDayOfType(teacherLoad.LessonType, g.boneWeek*7+offset)
 					if day > g.boneWeek*7+7 || day < 0 {
 						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
 						return fmt.Errorf("group haven't enough slots for lectures")
 					}
 
 					// отримання вільного слота для групи та викладача
-					lessonSlot := studyLoad.Teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
+					lessonSlot := teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						g.lessonService.CreateWithoutChecks(studyLoad.Teacher, studentGroup, dp.Discipline, slot, dp.LessonType)
+						g.lessonService.CreateWithoutChecks(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
 						success = true
 					}
 					offset = day - g.boneWeek*7 + 1
@@ -242,12 +271,16 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 }
 
 func (g *ScheduleGenerator) addMissingLessons() error {
-	for _, studyLoad := range g.studyLoadService.GetAll() {
-		for _, disciplineLoad := range studyLoad.Disciplines {
-			for _, group := range disciplineLoad.Groups {
+	teachers := g.teacherService.GetAll()
+
+	for i := range teachers {
+		teacher := &teachers[i]
+
+		for _, teacherLoad := range teacher.Load {
+			for _, group := range teacherLoad.Groups {
 				currentDay := g.boneWeek * 7
 				outOfGrid := false
-				for !disciplineLoad.Discipline.EnoughHours() && !outOfGrid {
+				for !teacherLoad.Discipline.EnoughHours() && !outOfGrid {
 					err := group.CheckDay(currentDay)
 					if err != nil {
 						outOfGrid = true
@@ -261,14 +294,14 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							Slot: i,
 						}
 						g.lessonService.CreateWithChecks(
-							studyLoad.Teacher,
+							teacher,
 							group,
-							disciplineLoad.Discipline,
+							teacherLoad.Discipline,
 							slot,
-							disciplineLoad.LessonType,
+							teacherLoad.LessonType,
 						)
 					}
-					currentDay = group.GetNextDayOfType(disciplineLoad.LessonType, currentDay+1)
+					currentDay = group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
 				}
 
 				// if !disciplineLoad.Discipline.EnoughHours() {

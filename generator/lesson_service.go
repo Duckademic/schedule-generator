@@ -73,7 +73,7 @@ func (ls *lessonService) CreateWithoutChecks(
 
 	teacher.SetOneSlotBusyness(slot, true)
 	studentGroup.SetOneSlotBusyness(slot, true)
-	discipline.CurrentHours += ls.lessonValue
+	discipline.Load[0].CurrentHours += ls.lessonValue
 }
 
 func (ls *lessonService) CreateWithChecks(

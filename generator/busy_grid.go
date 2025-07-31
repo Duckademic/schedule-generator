@@ -138,3 +138,20 @@ func (bg *BusyGrid) GetFreeSlot(otherSlots []float32, day int) int {
 
 	return maxI
 }
+
+// returns slices which contains 7 elements
+func (bg *BusyGrid) GetWeekDaysPriority() (result []float32) {
+	result = make([]float32, 7)
+	for day := range 7 {
+		for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
+			currentDay := day + week*7
+			var average float32 = 0
+			for slot, value := range bg.Grid[currentDay] {
+				average = ((average * float32(slot)) + value) / (float32(slot) + 1)
+			}
+
+			result[day] = (result[day]*float32(week) + average) / (float32(week) + 1)
+		}
+	}
+	return
+}

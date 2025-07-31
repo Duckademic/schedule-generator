@@ -5,21 +5,36 @@ import (
 	"github.com/google/uuid"
 )
 
-type Discipline struct {
-	ID           uuid.UUID
-	Name         string
+type DisciplineLoad struct {
+	Teacher      *Teacher
 	LoadHours    int
 	CurrentHours int
-	// Lessons map[string]int // тип - кількість годин
+	Groups       []*StudentGroup
+	LessonType   *LessonType
 }
 
+type Discipline struct {
+	ID   uuid.UUID
+	Name string
+	Load []DisciplineLoad
+}
+
+func (d *Discipline) AddLoad(dl *DisciplineLoad) error {
+	d.Load = append(d.Load, *dl)
+	return nil
+}
+
+// ПЕРЕПИСАТИ
 func (d *Discipline) EnoughHours() bool {
-	return d.LoadHours <= d.CurrentHours
+	return d.Load[0].LoadHours <= d.Load[0].CurrentHours
 }
 
 func (d *Discipline) CountHourDeficit() (count int) {
-	if !d.EnoughHours() {
-		count += d.LoadHours - d.CurrentHours
+	for _, load := range d.Load {
+		delta := load.LoadHours - load.CurrentHours
+		if delta > 0 {
+			count += delta
+		}
 	}
 	return
 }

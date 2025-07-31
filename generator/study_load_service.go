@@ -6,75 +6,57 @@ import (
 	"github.com/Duckademic/schedule-generator/types"
 )
 
-type StudyLoad struct {
-	Teacher     *Teacher
-	Disciplines []DisciplineLoad
-}
-
-type DisciplineLoad struct {
-	Discipline *Discipline
-	Groups     []*StudentGroup
-	Hours      int
-	LessonType *LessonType
-}
-
-type StudyLoadService interface {
-	GetAll() []StudyLoad
-}
-
-func NewStudyLoadService(
+func LoadStudyLoads(
 	studyLoads []types.StudyLoad,
 	ts TeacherService,
 	sgs StudentGroupService,
 	ds DisciplineService,
 	lts LessonTypeService,
-) (StudyLoadService, error) {
-	sls := studyLoadService{studyLoads: make([]StudyLoad, len(studyLoads))}
-
-	for i, studyLoad := range studyLoads {
-		sls.studyLoads[i] = StudyLoad{
-			Teacher: ts.Find(studyLoad.TeacherID),
-		}
-		if sls.studyLoads[i].Teacher == nil {
-			return nil, fmt.Errorf("teacher %s not found", studyLoad.TeacherID)
+) error {
+	for _, studyLoad := range studyLoads {
+		teacher := ts.Find(studyLoad.TeacherID)
+		if teacher == nil {
+			return fmt.Errorf("teacher %s not found", studyLoad.TeacherID)
 		}
 
 		for _, disciplineLoad := range studyLoad.Disciplines {
+			discipline := ds.Find(disciplineLoad.DisciplineID)
+			if discipline == nil {
+				return fmt.Errorf("discipline %s not found", disciplineLoad.DisciplineID)
+			}
+			lessonType := lts.Find(disciplineLoad.LessonTypeID)
+			if lessonType == nil {
+				return fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
+			}
+
 			dl := DisciplineLoad{
-				Discipline: ds.Find(disciplineLoad.DisciplineID),
-				Hours:      disciplineLoad.Hours,
+				Teacher:    teacher,
+				LoadHours:  len(disciplineLoad.GroupsID) * disciplineLoad.Hours,
 				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
 				LessonType: lts.Find(disciplineLoad.LessonTypeID),
 			}
-			if dl.Discipline == nil {
-				return nil, fmt.Errorf("discipline %s not found", disciplineLoad.DisciplineID)
+
+			tl := TeacherLoad{
+				Discipline: discipline,
+				LessonType: lessonType,
+				Groups:     dl.Groups,
 			}
-			if dl.LessonType == nil {
-				return nil, fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
-			}
-			dl.Discipline.LoadHours += len(disciplineLoad.GroupsID) * dl.Hours
 
 			for j, studentGroupID := range disciplineLoad.GroupsID {
 				dl.Groups[j] = sgs.Find(studentGroupID)
 				if dl.Groups[j] == nil {
-					return nil, fmt.Errorf("student group %s not found", studentGroupID)
+					return fmt.Errorf("student group %s not found", studentGroupID)
 				}
 			}
 
-			sls.studyLoads[i].Disciplines = append(sls.studyLoads[i].Disciplines, dl)
+			if err := discipline.AddLoad(&dl); err != nil {
+				return err
+			}
+			if err := teacher.AddLoad(&tl); err != nil {
+				return err
+			}
 		}
 	}
 
-	sls.currentStudyLoad = &sls.studyLoads[0]
-
-	return &sls, nil
-}
-
-type studyLoadService struct {
-	studyLoads       []StudyLoad
-	currentStudyLoad *StudyLoad
-}
-
-func (sls *studyLoadService) GetAll() []StudyLoad {
-	return sls.studyLoads
+	return nil
 }
