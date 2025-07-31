@@ -157,7 +157,7 @@ func (bg *BusyGrid) GetWeekDaysPriority() (result []float32) {
 }
 
 func (bg *BusyGrid) CountSlotsAtDay(day int) (count int) {
-	if day < 0 || day > 6 {
+	if err := bg.CheckWeekDay(day); err != nil {
 		return
 	}
 
@@ -170,4 +170,31 @@ func (bg *BusyGrid) CountSlotsAtDay(day int) (count int) {
 		}
 	}
 	return
+}
+
+func (bg *BusyGrid) SetDayBusyness(newBusyness []float32, day int) error {
+	if err := bg.CheckWeekDay(day); err != nil {
+		return err
+	}
+	if len(newBusyness) != len(bg.Grid[day]) {
+		return fmt.Errorf("incorrect length of the new busyness (%d instead of %d)", len(newBusyness), len(bg.Grid[day]))
+	}
+
+	for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
+		copy(bg.Grid[day], newBusyness)
+	}
+
+	return nil
+}
+
+func (bg *BusyGrid) CheckWeekDay(day int) error {
+	if day < 0 || day > 6 {
+		return DayOutError{
+			min:   0,
+			max:   6,
+			input: day,
+		}
+	}
+
+	return nil
 }

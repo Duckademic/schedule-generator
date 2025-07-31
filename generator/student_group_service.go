@@ -179,7 +179,16 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 			MaxLessonsPerDay: maxLessonsPerDay,
 			DaysOfType:       map[*LessonType]*StudentGroupLoad{},
 		}
-		sgs.studentGroups[i].BusyGrid = *NewBusyGrid(busyGrid)
+		studentGroup := &sgs.studentGroups[i]
+		studentGroup.BusyGrid = *NewBusyGrid(busyGrid)
+
+		md := studentGroups[i].MilitaryDay - 1
+		if md != -1 {
+			if err := studentGroup.CheckWeekDay(md); err != nil {
+				return nil, err
+			}
+			studentGroup.SetDayBusyness(make([]float32, len(studentGroup.Grid[md])), md)
+		}
 	}
 
 	return &sgs, nil

@@ -21,8 +21,9 @@ type DisciplineLoad struct {
 // ==============================================================
 
 type StudentGroup struct {
-	ID   uuid.UUID `json:"id" binding:"required"`
-	Name string    `json:"name" binding:"required,min=4"`
+	ID          uuid.UUID `json:"id" binding:"required"`
+	Name        string    `json:"name" binding:"required,min=4"`
+	MilitaryDay int       `json:"military_day" binding:"get=1,let=7"`
 	// Number string // номер групи (32)
 }
 
