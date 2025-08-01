@@ -42,21 +42,25 @@ func (s *JSONAPIServer) Run() error {
 	// server.POST("/generator/reset/", func(ctx *gin.Context) {
 
 	// })
-	server.GET("/teacher/", s.teacherController.GetAll)
-	server.POST("/teacher/", s.teacherController.Create)
-	server.PUT("/teacher/:teacher_id/", s.teacherController.Update)
-	server.DELETE("/teacher/:teacher_id/", s.teacherController.Delete)
 
-	server.GET("/student_group/", s.studentGroupController.GetAll)
-	server.POST("/student_group/", s.studentGroupController.Create)
-	server.PUT("/student_group/:student_group_id/", s.studentGroupController.Update)
-	server.DELETE("/student_group/:student_group_id/", s.studentGroupController.Delete)
+	teacherRouts := server.Group("/teacher")
+	teacherRouts.GET("/", s.teacherController.GetAll)
+	teacherRouts.POST("/", s.teacherController.Create)
+	teacherRouts.PUT("/:teacher_id/", s.teacherController.Update)
+	teacherRouts.DELETE("/:teacher_id/", s.teacherController.Delete)
 
-	server.GET("/lesson/", s.lessonController.GetAll)
-	server.POST("/lesson/", s.lessonController.Create)
-	server.PUT("/lesson/:lesson_id/", s.lessonController.Update)
-	server.DELETE("/lesson/:lesson_id/", s.lessonController.Delete)
-	server.POST("/lesson/swap/", s.lessonController.SwapSlots)
+	studentGroupRouts := server.Group("/student_group")
+	studentGroupRouts.GET("/", s.studentGroupController.GetAll)
+	studentGroupRouts.POST("/", s.studentGroupController.Create)
+	studentGroupRouts.PUT("/:student_group_id/", s.studentGroupController.Update)
+	studentGroupRouts.DELETE("/:student_group_id/", s.studentGroupController.Delete)
+
+	lessonRouts := server.Group("/lesson")
+	lessonRouts.GET("/", s.lessonController.GetAll)
+	lessonRouts.POST("/", s.lessonController.Create)
+	lessonRouts.PUT("/:lesson_id/", s.lessonController.Update)
+	lessonRouts.DELETE("/:lesson_id/", s.lessonController.Delete)
+	lessonRouts.POST("/swap/", s.lessonController.SwapSlots)
 
 	err := server.Run(s.listenAddr)
 	return err
