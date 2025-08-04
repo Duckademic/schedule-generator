@@ -84,14 +84,9 @@ func (ls *lessonService) AddWithChecks(
 
 	lesson := ls.CreateLesson(teacher, studentGroup, discipline, slot, lType)
 
-	// перевірки викладача
-	if err := teacher.CheckSlot(slot); err != nil {
+	if err := teacher.CheckLesson(lesson); err != nil {
 		return err
 	}
-	if teacher.IsBusy(slot) {
-		return fmt.Errorf("teacher is busy")
-	}
-
 	if err := studentGroup.CheckLesson(lesson); err != nil {
 		return err
 	}
@@ -109,8 +104,8 @@ func (ls *lessonService) AddLesson(l *Lesson) {
 	ls.lessons = append(ls.lessons, *l)
 
 	l.StudentGroup.AddLesson(l, true)
+	l.Teacher.AddLesson(l, true)
 
-	l.Teacher.SetOneSlotBusyness(l.Slot, true)
 	l.Discipline.Load[0].CurrentHours += ls.lessonValue
 }
 

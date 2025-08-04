@@ -1,6 +1,8 @@
 package generator
 
 import (
+	"fmt"
+
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/google/uuid"
 )
@@ -13,19 +15,48 @@ type TeacherLoad struct {
 
 type Teacher struct {
 	BusyGrid
+	LessonChecker
 	ID       uuid.UUID
 	UserName string
 	Load     []TeacherLoad
 }
 
-func (t *Teacher) AddLoad(discipline *Discipline, lessonType *LessonType, groups []*StudentGroup) error {
+func (t *Teacher) AddLoad(discipline *Discipline, lessonType *LessonType, groups []*StudentGroup, hours int) error {
 	tl := TeacherLoad{
 		Discipline: discipline,
 		LessonType: lessonType,
 		Groups:     groups,
 	}
 
+	t.RequiredHours += hours
+
 	t.Load = append(t.Load, tl)
+	return nil
+}
+
+func (t *Teacher) AddLesson(lesson *Lesson, ignoreCheck bool) error {
+	err := t.CheckLesson(lesson)
+	if err != nil && !ignoreCheck {
+		return err
+	}
+
+	t.SetOneSlotBusyness(lesson.Slot, true)
+	t.LessonChecker.AddLesson(lesson)
+
+	return err
+}
+
+func (t *Teacher) CheckLesson(lesson *Lesson) error {
+	if err := t.CheckSlot(lesson.Slot); err != nil {
+		return err
+	}
+	if t.IsBusy(lesson.Slot) {
+		return fmt.Errorf("teacher is busy")
+	}
+	if t.CountHourDeficit() <= 0 {
+		return fmt.Errorf("enough hours")
+	}
+
 	return nil
 }
 
@@ -33,6 +64,7 @@ type TeacherService interface {
 	Find(uuid.UUID) *Teacher
 	GetAll() []Teacher
 	CountWindows() int
+	CountHourDeficit() int
 }
 
 type teacherService struct {
@@ -69,5 +101,13 @@ func (ts *teacherService) CountWindows() (count int) {
 	for _, t := range ts.teachers {
 		count += t.CountWindows()
 	}
+	return
+}
+
+func (ts *teacherService) CountHourDeficit() (count int) {
+	for _, teacher := range ts.teachers {
+		count += teacher.CountHourDeficit()
+	}
+
 	return
 }

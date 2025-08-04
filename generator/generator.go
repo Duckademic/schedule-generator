@@ -134,7 +134,7 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 			if err := discipline.AddLoad(teacher, disciplineLoad.Hours, studentGroups, lessonType); err != nil {
 				return err
 			}
-			if err := teacher.AddLoad(discipline, lessonType, studentGroups); err != nil {
+			if err := teacher.AddLoad(discipline, lessonType, studentGroups, disciplineLoad.Hours); err != nil {
 				return err
 			}
 		}
@@ -392,7 +392,8 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 	log.Printf("кількість занять: %d, недостача годин для дисциплін: %d", lessonsCount, disciplineHourDeficit)
 
 	studentGroupHourDeficit := g.studentGroupService.CountHourDeficit()
-	log.Printf("недостача годин для груп: %d", studentGroupHourDeficit)
+	teachersHourDeficit := g.teacherService.CountHourDeficit()
+	log.Printf("недостача годин для груп: %d, недостача годин для викладачів: %d", studentGroupHourDeficit, teachersHourDeficit)
 
 	return nil
 }
