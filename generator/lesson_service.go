@@ -67,12 +67,13 @@ func (ls *lessonService) CreateWithoutChecks(
 		Discipline:   discipline,
 		Slot:         slot,
 		Type:         lType,
+		Value:        ls.lessonValue,
 	}
 
 	ls.lessons = append(ls.lessons, l)
 
 	teacher.SetOneSlotBusyness(slot, true)
-	studentGroup.SetOneSlotBusyness(slot, true)
+	studentGroup.AddLesson(&l, true)
 	discipline.Load[0].CurrentHours += ls.lessonValue
 }
 
@@ -100,14 +101,6 @@ func (ls *lessonService) CreateWithChecks(
 	}
 	if teacher.IsBusy(slot) {
 		return fmt.Errorf("teacher is busy")
-	}
-
-	// перевірки групи студентів
-	// if err := studentGroup.CheckSlot(slot); err != nil {
-	// 	return err
-	// }
-	if studentGroup.IsBusy(slot) {
-		return fmt.Errorf("student group is busy")
 	}
 
 	// перевірки дисципліни

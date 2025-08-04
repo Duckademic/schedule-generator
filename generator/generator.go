@@ -395,12 +395,17 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 		return err
 	}
 
-	tw := g.teacherService.CountWindows()
-	sgw := g.studentGroupService.CountWindows()
-	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", tw, sgw)
-	hd := g.disciplineService.CountHourDeficit()
-	lc := len(g.lessonService.GetAll())
-	log.Printf("кількість занять: %d, недостача годин: %d", lc, hd)
+	teacherWindows := g.teacherService.CountWindows()
+	studentGroupWindows := g.studentGroupService.CountWindows()
+	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", teacherWindows, studentGroupWindows)
+
+	disciplineHourDeficit := g.disciplineService.CountHourDeficit()
+	lessonsCount := len(g.lessonService.GetAll())
+	log.Printf("кількість занять: %d, недостача годин для дисциплін: %d", lessonsCount, disciplineHourDeficit)
+
+	studentGroupHourDeficit := g.studentGroupService.CountHourDeficit()
+	log.Printf("недостача годин для груп: %d", studentGroupHourDeficit)
+
 	return nil
 }
 

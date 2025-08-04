@@ -9,8 +9,8 @@ import (
 )
 
 type StudentGroupLoad struct {
-	Days  []int
-	Hours int
+	Days []int
+	LessonChecker
 }
 
 type StudentGroup struct {
@@ -120,7 +120,7 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 
 func (sg *StudentGroup) GetMaxHours(lType *LessonType) int {
 	if sgl, ok := sg.DaysOfType[lType]; ok {
-		return sgl.Hours
+		return sgl.RequiredHours
 	}
 	return 0
 }
@@ -135,7 +135,7 @@ func (sg *StudentGroup) AddDayType(lType *LessonType, hours int) error {
 		sg.DaysOfType[lType] = &StudentGroupLoad{}
 	}
 
-	sg.DaysOfType[lType].Hours += hours
+	sg.DaysOfType[lType].RequiredHours += hours
 	return nil
 }
 
@@ -157,10 +157,45 @@ func (sg *StudentGroup) SetDayType(lType *LessonType, day int) error {
 	return nil
 }
 
+func (sg *StudentGroup) AddLesson(lesson *Lesson, ignoreCheck bool) error {
+	err := sg.CheckLesson(lesson)
+	if err != nil && !ignoreCheck {
+		return err
+	}
+
+	sg.SetOneSlotBusyness(lesson.Slot, true)
+	sg.DaysOfType[lesson.Type].AddLesson(lesson)
+
+	return err
+}
+
+func (sg *StudentGroup) CheckLesson(lesson *Lesson) error {
+	if err := sg.CheckSlot(lesson.Slot); err != nil {
+		return err
+	}
+	if sg.IsBusy(lesson.Slot) {
+		return fmt.Errorf("student group is busy")
+	}
+	if sg.DaysOfType[lesson.Type].CountHourDeficit() <= 0 {
+		return fmt.Errorf("enough hours of type %s", lesson.Type.Name)
+	}
+
+	return nil
+}
+
+func (sg *StudentGroup) CountHourDeficit() (count int) {
+	for _, studentGroupLoad := range sg.DaysOfType {
+		count += studentGroupLoad.CountHourDeficit()
+	}
+
+	return count
+}
+
 type StudentGroupService interface {
 	GetAll() []StudentGroup
 	Find(uuid.UUID) *StudentGroup
 	CountWindows() int
+	CountHourDeficit() int
 }
 
 type studentGroupService struct {
@@ -214,4 +249,12 @@ func (sgs *studentGroupService) CountWindows() (count int) {
 		count += g.CountWindows()
 	}
 	return
+}
+
+func (sgs *studentGroupService) CountHourDeficit() (count int) {
+	for _, studentGroup := range sgs.studentGroups {
+		count += studentGroup.CountHourDeficit()
+	}
+
+	return count
 }
