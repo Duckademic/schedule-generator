@@ -30,6 +30,7 @@ type StudentGroup struct {
 type Teacher struct {
 	ID       uuid.UUID `json:"id" binding:"required"`
 	UserName string    `json:"user_name" binding:"required,min=4"`
+	Priority int       `json:"priority"`
 	// масив з бажаннями викладача
 	// AcademicDegree string // асистент/доцент/професор
 }

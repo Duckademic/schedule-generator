@@ -18,6 +18,7 @@ type Teacher struct {
 	LessonChecker
 	ID       uuid.UUID
 	UserName string
+	Priority int
 	Load     []TeacherLoad
 }
 
@@ -76,8 +77,20 @@ func NewTeacherService(teachers []types.Teacher, busyGrid [][]float32) (TeacherS
 	ts := teacherService{teachers: make([]Teacher, len(teachers))}
 
 	for i := range teachers {
-		ts.teachers[i] = Teacher{ID: teachers[i].ID, UserName: teachers[i].UserName}
-		ts.teachers[i].BusyGrid = *NewBusyGrid(busyGrid)
+		teacher := Teacher{ID: teachers[i].ID, UserName: teachers[i].UserName, Priority: teachers[i].Priority}
+		teacher.BusyGrid = *NewBusyGrid(busyGrid)
+
+		success := false
+		for j, lowerTeacher := range ts.teachers {
+			if lowerTeacher.Priority <= teacher.Priority {
+				ts.teachers = append(ts.teachers[:j], append([]Teacher{teacher}, ts.teachers[j:]...)...)
+				success = true
+				break
+			}
+		}
+		if !success {
+			ts.teachers = append(ts.teachers, teacher)
+		}
 	}
 
 	return &ts, nil
