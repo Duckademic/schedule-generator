@@ -30,8 +30,8 @@ func (l *Lesson) After(other *Lesson) bool {
 
 type LessonService interface {
 	GetAll() []Lesson
-	CreateWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
-	CreateWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
+	AddWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
+	AddWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
 	GetWeekLessons(int) []Lesson
 }
 
@@ -54,30 +54,17 @@ func (ls *lessonService) GetAll() []Lesson {
 	return ls.lessons
 }
 
-func (ls *lessonService) CreateWithoutChecks(
+func (ls *lessonService) AddWithoutChecks(
 	teacher *Teacher,
 	studentGroup *StudentGroup,
 	discipline *Discipline,
 	slot LessonSlot,
 	lType *LessonType,
 ) {
-	l := Lesson{
-		Teacher:      teacher,
-		StudentGroup: studentGroup,
-		Discipline:   discipline,
-		Slot:         slot,
-		Type:         lType,
-		Value:        ls.lessonValue,
-	}
-
-	ls.lessons = append(ls.lessons, l)
-
-	teacher.SetOneSlotBusyness(slot, true)
-	studentGroup.AddLesson(&l, true)
-	discipline.Load[0].CurrentHours += ls.lessonValue
+	ls.AddLesson(ls.CreateLesson(teacher, studentGroup, discipline, slot, lType))
 }
 
-func (ls *lessonService) CreateWithChecks(
+func (ls *lessonService) AddWithChecks(
 	teacher *Teacher,
 	studentGroup *StudentGroup,
 	discipline *Discipline,
@@ -95,6 +82,8 @@ func (ls *lessonService) CreateWithChecks(
 		return fmt.Errorf("discipline can't be nil")
 	}
 
+	lesson := ls.CreateLesson(teacher, studentGroup, discipline, slot, lType)
+
 	// перевірки викладача
 	if err := teacher.CheckSlot(slot); err != nil {
 		return err
@@ -103,13 +92,43 @@ func (ls *lessonService) CreateWithChecks(
 		return fmt.Errorf("teacher is busy")
 	}
 
+	if err := studentGroup.CheckLesson(lesson); err != nil {
+		return err
+	}
+
 	// перевірки дисципліни
 	if discipline.EnoughHours() {
 		return fmt.Errorf("discipline have enough hours")
 	}
 
-	ls.CreateWithoutChecks(teacher, studentGroup, discipline, slot, lType)
+	ls.AddWithoutChecks(teacher, studentGroup, discipline, slot, lType)
 	return nil
+}
+
+func (ls *lessonService) AddLesson(l *Lesson) {
+	ls.lessons = append(ls.lessons, *l)
+
+	l.StudentGroup.AddLesson(l, true)
+
+	l.Teacher.SetOneSlotBusyness(l.Slot, true)
+	l.Discipline.Load[0].CurrentHours += ls.lessonValue
+}
+
+func (ls *lessonService) CreateLesson(
+	teacher *Teacher,
+	studentGroup *StudentGroup,
+	discipline *Discipline,
+	slot LessonSlot,
+	lType *LessonType,
+) *Lesson {
+	return &Lesson{
+		Teacher:      teacher,
+		StudentGroup: studentGroup,
+		Discipline:   discipline,
+		Slot:         slot,
+		Type:         lType,
+		Value:        ls.lessonValue,
+	}
 }
 
 func (ls *lessonService) GetWeekLessons(week int) (res []Lesson) {

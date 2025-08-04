@@ -6,11 +6,10 @@ import (
 )
 
 type DisciplineLoad struct {
-	Teacher      *Teacher
-	LoadHours    int
-	CurrentHours int
-	Groups       []*StudentGroup
-	LessonType   *LessonType
+	Teacher    *Teacher
+	Groups     []*StudentGroup
+	LessonType *LessonType
+	LessonChecker
 }
 
 type Discipline struct {
@@ -19,23 +18,30 @@ type Discipline struct {
 	Load []DisciplineLoad
 }
 
-func (d *Discipline) AddLoad(dl *DisciplineLoad) error {
-	d.Load = append(d.Load, *dl)
+func (d *Discipline) AddLoad(teacher *Teacher, hours int, groups []*StudentGroup, lType *LessonType) error {
+	dl := DisciplineLoad{
+		LessonChecker: LessonChecker{
+			RequiredHours: hours * len(groups),
+		},
+		Teacher:    teacher,
+		Groups:     groups,
+		LessonType: lType,
+	}
+
+	d.Load = append(d.Load, dl)
 	return nil
 }
 
 // ПЕРЕПИСАТИ
 func (d *Discipline) EnoughHours() bool {
-	return d.Load[0].LoadHours <= d.Load[0].CurrentHours
+	return d.Load[0].RequiredHours <= d.Load[0].CurrentHours
 }
 
 func (d *Discipline) CountHourDeficit() (count int) {
 	for _, load := range d.Load {
-		delta := load.LoadHours - load.CurrentHours
-		if delta > 0 {
-			count += delta
-		}
+		count += load.CountHourDeficit()
 	}
+
 	return
 }
 

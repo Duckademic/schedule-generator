@@ -18,8 +18,14 @@ type Teacher struct {
 	Load     []TeacherLoad
 }
 
-func (t *Teacher) AddLoad(tl *TeacherLoad) error {
-	t.Load = append(t.Load, *tl)
+func (t *Teacher) AddLoad(discipline *Discipline, lessonType *LessonType, groups []*StudentGroup) error {
+	tl := TeacherLoad{
+		Discipline: discipline,
+		LessonType: lessonType,
+		Groups:     groups,
+	}
+
+	t.Load = append(t.Load, tl)
 	return nil
 }
 

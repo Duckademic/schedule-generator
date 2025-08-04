@@ -120,19 +120,7 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 				return fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
 			}
 
-			dl := DisciplineLoad{
-				Teacher:    teacher,
-				LoadHours:  len(disciplineLoad.GroupsID) * disciplineLoad.Hours,
-				Groups:     make([]*StudentGroup, len(disciplineLoad.GroupsID)),
-				LessonType: lessonType,
-			}
-
-			tl := TeacherLoad{
-				Discipline: discipline,
-				LessonType: lessonType,
-				Groups:     dl.Groups,
-			}
-
+			studentGroups := make([]*StudentGroup, len(disciplineLoad.GroupsID))
 			for j, studentGroupID := range disciplineLoad.GroupsID {
 				studentGroup := g.studentGroupService.Find(studentGroupID)
 				if studentGroup == nil {
@@ -140,13 +128,13 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 				}
 				studentGroup.AddDayType(lessonType, disciplineLoad.Hours)
 
-				dl.Groups[j] = studentGroup
+				studentGroups[j] = studentGroup
 			}
 
-			if err := discipline.AddLoad(&dl); err != nil {
+			if err := discipline.AddLoad(teacher, disciplineLoad.Hours, studentGroups, lessonType); err != nil {
 				return err
 			}
-			if err := teacher.AddLoad(&tl); err != nil {
+			if err := teacher.AddLoad(discipline, lessonType, studentGroups); err != nil {
 				return err
 			}
 		}
@@ -306,7 +294,7 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						g.lessonService.CreateWithoutChecks(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
+						g.lessonService.AddWithoutChecks(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
 						success = true
 					}
 					offset = day - g.boneWeek*7 + 1
@@ -330,7 +318,7 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 				Slot: lesson.Slot.Slot,
 			}
 
-			err := g.lessonService.CreateWithChecks(
+			err := g.lessonService.AddWithChecks(
 				lesson.Teacher,
 				lesson.StudentGroup,
 				lesson.Discipline,
@@ -368,7 +356,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							Day:  currentDay,
 							Slot: i,
 						}
-						g.lessonService.CreateWithChecks(
+						g.lessonService.AddWithChecks(
 							teacher,
 							group,
 							teacherLoad.Discipline,
