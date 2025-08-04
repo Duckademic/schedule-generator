@@ -176,8 +176,17 @@ func (sg *StudentGroup) CheckLesson(lesson *Lesson) error {
 	if sg.IsBusy(lesson.Slot) {
 		return fmt.Errorf("student group is busy")
 	}
-	if sg.DaysOfType[lesson.Type].CountHourDeficit() <= 0 {
+
+	sgLoad := sg.DaysOfType[lesson.Type]
+	if sgLoad.CountHourDeficit() <= 0 {
 		return fmt.Errorf("enough hours of type %s", lesson.Type.Name)
+	}
+	if !slices.Contains(sgLoad.Days, lesson.Slot.Day%7) {
+		if lesson.Type.Weeks == 0 {
+			return fmt.Errorf("type %s not in the correct day (in %d instead of %v)",
+				lesson.Type.Name, lesson.Slot.Day%7, sgLoad.Days,
+			)
+		}
 	}
 
 	return nil

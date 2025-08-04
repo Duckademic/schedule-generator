@@ -95,6 +95,7 @@ func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
 	}
 
 	g.lessonTypeService = lts
+	g.boneWeek = g.lessonTypeService.GetWeekOffset()
 	return nil
 }
 
@@ -177,7 +178,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return err
 	}
 
-	err = g.generateBoneLectures()
+	err = g.generateBoneLessons()
 	if err != nil {
 		return err
 	}
@@ -269,7 +270,7 @@ func (g *ScheduleGenerator) setDayTypes() error {
 	return nil
 }
 
-func (g *ScheduleGenerator) generateBoneLectures() error {
+func (g *ScheduleGenerator) generateBoneLessons() error {
 	teachers := g.teacherService.GetAll()
 
 	for i := range teachers {
@@ -309,12 +310,12 @@ func (g *ScheduleGenerator) generateBoneLectures() error {
 
 func (g *ScheduleGenerator) buildLessonCarcass() {
 	boneLessons := g.lessonService.GetWeekLessons(g.boneWeek)
-	currentWeek := g.boneWeek + 1
+	currentWeek := 0
 	outOfGrid := false
 	for !outOfGrid {
 		for _, lesson := range boneLessons {
 			newSlot := LessonSlot{
-				Day:  lesson.Slot.Day + currentWeek*7,
+				Day:  lesson.Slot.Day%7 + currentWeek*7,
 				Slot: lesson.Slot.Slot,
 			}
 
@@ -341,7 +342,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 
 		for _, teacherLoad := range teacher.Load {
 			for _, group := range teacherLoad.Groups {
-				currentDay := g.boneWeek * 7
+				currentDay := 0
 				outOfGrid := false
 				for !teacherLoad.Discipline.EnoughHours() && !outOfGrid {
 					err := group.CheckDay(currentDay)
@@ -364,7 +365,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							teacherLoad.LessonType,
 						)
 					}
-					currentDay = group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
+					currentDay += 1 //group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
 				}
 
 				// if !disciplineLoad.Discipline.EnoughHours() {

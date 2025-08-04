@@ -6,13 +6,15 @@ import (
 )
 
 type LessonType struct {
-	ID   uuid.UUID
-	Name string
+	ID    uuid.UUID
+	Name  string
+	Weeks int
 }
 
 type LessonTypeService interface {
 	Find(uuid.UUID) *LessonType
 	GetAll() []LessonType
+	GetWeekOffset() int
 }
 
 func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) {
@@ -22,8 +24,9 @@ func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) 
 
 	for i, lt := range lTypes {
 		lts.lessonTypes[i] = LessonType{
-			ID:   lt.ID,
-			Name: lt.Name,
+			ID:    lt.ID,
+			Name:  lt.Name,
+			Weeks: lt.Weeks,
 		}
 	}
 
@@ -45,4 +48,12 @@ func (lts *lessonTypeService) Find(id uuid.UUID) *LessonType {
 
 func (lts *lessonTypeService) GetAll() []LessonType {
 	return lts.lessonTypes
+}
+
+func (lts *lessonTypeService) GetWeekOffset() (maxW int) {
+	for _, lType := range lts.lessonTypes {
+		maxW = max(maxW, lType.Weeks)
+	}
+
+	return
 }

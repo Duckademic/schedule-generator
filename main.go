@@ -29,7 +29,7 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
+			End:                time.Date(2025, time.April, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
 			FillPercentage:     1,

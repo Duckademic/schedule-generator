@@ -51,6 +51,7 @@ type Lesson struct {
 }
 
 type LessonType struct {
-	ID   uuid.UUID `json:"id" binding:"required"`
-	Name string    `json:"name" binding:"required,min=4"`
+	ID    uuid.UUID `json:"id" binding:"required"`
+	Name  string    `json:"name" binding:"required,min=4"`
+	Weeks int       `json:"weeks"` // кількість тижнів на початку навчання заповнених тільки цими типами занять
 }
