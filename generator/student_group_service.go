@@ -191,11 +191,20 @@ func (sg *StudentGroup) CountHourDeficit() (count int) {
 	return count
 }
 
+func (sg *StudentGroup) CountLessonOverlapping() (count int) {
+	for _, load := range sg.DaysOfType {
+		count += sg.BusyGrid.CountLessonOverlapping(load.Lessons)
+	}
+
+	return
+}
+
 type StudentGroupService interface {
 	GetAll() []StudentGroup
 	Find(uuid.UUID) *StudentGroup
 	CountWindows() int
 	CountHourDeficit() int
+	CountLessonOverlapping() int
 }
 
 type studentGroupService struct {
@@ -257,4 +266,12 @@ func (sgs *studentGroupService) CountHourDeficit() (count int) {
 	}
 
 	return count
+}
+
+func (sgs *studentGroupService) CountLessonOverlapping() (count int) {
+	for _, studentGroup := range sgs.studentGroups {
+		count += studentGroup.CountLessonOverlapping()
+	}
+
+	return
 }

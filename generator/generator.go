@@ -395,6 +395,10 @@ func (g *ScheduleGenerator) CheckSchedule() error {
 	teachersHourDeficit := g.teacherService.CountHourDeficit()
 	log.Printf("недостача годин для груп: %d, недостача годин для викладачів: %d", studentGroupHourDeficit, teachersHourDeficit)
 
+	studentGroupLessonOverlapping := g.studentGroupService.CountLessonOverlapping()
+	teacherLessonOverlapping := g.teacherService.CountLessonOverlapping()
+	log.Printf("перекриття у студентів: %d, перекриття у викладачів: %d", studentGroupLessonOverlapping, teacherLessonOverlapping)
+
 	return nil
 }
 

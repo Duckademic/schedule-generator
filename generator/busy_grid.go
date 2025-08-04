@@ -198,3 +198,19 @@ func (bg *BusyGrid) CheckWeekDay(day int) error {
 
 	return nil
 }
+
+func (bg *BusyGrid) CountLessonOverlapping(lessons []*Lesson) (count int) {
+	for _, lesson := range lessons {
+		if bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] >= 0 {
+			count++
+		}
+
+		bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] = -bg.Grid[lesson.Slot.Day][lesson.Slot.Slot]
+	}
+
+	for _, lesson := range lessons {
+		bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] = -bg.Grid[lesson.Slot.Day][lesson.Slot.Slot]
+	}
+
+	return count
+}

@@ -65,6 +65,7 @@ type TeacherService interface {
 	GetAll() []Teacher
 	CountWindows() int
 	CountHourDeficit() int
+	CountLessonOverlapping() int
 }
 
 type teacherService struct {
@@ -107,6 +108,14 @@ func (ts *teacherService) CountWindows() (count int) {
 func (ts *teacherService) CountHourDeficit() (count int) {
 	for _, teacher := range ts.teachers {
 		count += teacher.CountHourDeficit()
+	}
+
+	return
+}
+
+func (ts *teacherService) CountLessonOverlapping() (count int) {
+	for _, teacher := range ts.teachers {
+		count += teacher.CountLessonOverlapping(teacher.Lessons)
 	}
 
 	return

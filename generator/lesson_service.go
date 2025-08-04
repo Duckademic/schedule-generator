@@ -96,7 +96,7 @@ func (ls *lessonService) AddWithChecks(
 		return fmt.Errorf("discipline have enough hours")
 	}
 
-	ls.AddWithoutChecks(teacher, studentGroup, discipline, slot, lType)
+	ls.AddLesson(lesson)
 	return nil
 }
 
