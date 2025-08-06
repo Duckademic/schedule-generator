@@ -127,7 +127,10 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 				if studentGroup == nil {
 					return fmt.Errorf("student group %s not found", studentGroupID)
 				}
-				studentGroup.AddDayType(lessonType, disciplineLoad.Hours)
+				studentGroup.AddBindingToLessonType(lessonType, disciplineLoad.Hours)
+				for week := range lessonType.Weeks {
+					studentGroup.AddWeekToLessonType(lessonType, week)
+				}
 
 				studentGroups[j] = studentGroup
 			}
@@ -255,7 +258,7 @@ func (g *ScheduleGenerator) setDayTypes() error {
 				if mIndex == -1 {
 					return fmt.Errorf("can't add a day of type %s to group %s", lType.Name, group.group.Name)
 				}
-				err := group.group.SetDayType(lType, mIndex)
+				err := group.group.AddDayToLessonType(lType, mIndex)
 				if err != nil {
 					dayIndex := slices.Index(availableDays, mIndex)
 					availableDays = append(availableDays[:dayIndex], availableDays[dayIndex+1:]...)
@@ -365,7 +368,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							teacherLoad.LessonType,
 						)
 					}
-					currentDay += 1 //group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
+					currentDay += group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
 				}
 
 				// if !disciplineLoad.Discipline.EnoughHours() {
