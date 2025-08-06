@@ -148,8 +148,10 @@ func (sg *StudentGroup) SetDayType(lType *LessonType, day int) error {
 	if !ok {
 		return fmt.Errorf("type %s not found", lType.Name)
 	}
-	if slices.Contains(load.Days, day) {
-		return fmt.Errorf("day %d already typed as %s", day, lType.Name)
+	for lessonType, load := range sg.DaysOfType {
+		if slices.Contains(load.Days, day) {
+			return fmt.Errorf("day %d already typed as %s", day, lessonType.Name)
+		}
 	}
 
 	load.Days = append(load.Days, day)
