@@ -1,11 +1,35 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/Duckademic/schedule-generator/generator"
+	"github.com/Duckademic/schedule-generator/repositories"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	if err := ENVLoad(); err != nil {
+		log.Fatal("Init error: " + err.Error())
+	}
+
+	_, err := repositories.InitAndSyncDB()
+	if err != nil {
+		log.Fatal("Init error: " + err.Error())
+	}
+
+	s, err := ServerInit()
+	if err != nil {
+		log.Fatal("Init error: " + err.Error())
+	}
+	server = *s
+}
+
+var server JSONAPIServer
 
 func main() {
 	wl := [][]float32{
@@ -68,20 +92,52 @@ func main() {
 	gen.CheckSchedule()
 	gen.WriteSchedule()
 
-	// listenAddr := flag.String("listenaddr", ":8080", "listen address the service is running")
-	// flag.Parse()
+	err := server.Run()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+}
 
-	// server, err := NewJSONAPIServer(*listenAddr, generator.ScheduleGeneratorConfig{
-	// 	LessonsValue:       2,
-	// 	Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-	// 	End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
-	// 	WorkLessons:        wl,
-	// 	MaxStudentWorkload: 4,
-	// })
+func ENVLoad() error {
+	err := godotenv.Load()
+	if err != nil {
+		return fmt.Errorf("error loading .env file: %s", err.Error())
+	}
 
-	// if err != nil {
-	// 	log.Fatal("Server creation error: " + err.Error())
-	// }
+	return nil
+}
 
-	// server.Run()
+func ServerInit() (*JSONAPIServer, error) {
+	release := os.Getenv("RELEASE")
+	if release == "1" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	wl := [][]float32{
+		{},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{},
+	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		return nil, fmt.Errorf("port not specified at .env file")
+	}
+
+	server, err := NewJSONAPIServer("", generator.ScheduleGeneratorConfig{
+		LessonsValue:       2,
+		Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
+		End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
+		WorkLessons:        wl,
+		MaxStudentWorkload: 4,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("server creation error: %s", err.Error())
+	}
+
+	return server, nil
 }
