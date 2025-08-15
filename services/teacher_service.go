@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"github.com/Duckademic/schedule-generator/repositories"
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/google/uuid"
 )
@@ -66,4 +67,18 @@ func (ts *teacherService) Delete(teacherId uuid.UUID) error {
 
 func (ts *teacherService) GetAll() []types.Teacher {
 	return ts.teachers
+}
+
+func NewGORMTeacherService(repo repositories.TeacherRepository) (TeacherService, error) {
+	ts := gormTeacherService{
+		gormSimpleService: gormSimpleService[types.Teacher]{
+			repo: repo,
+		},
+	}
+
+	return &ts, nil
+}
+
+type gormTeacherService struct {
+	gormSimpleService[types.Teacher]
 }

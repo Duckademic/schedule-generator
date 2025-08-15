@@ -6,6 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type Model struct {
+	ID        uuid.UUID `json:"id" binding:"required" gorm:"primary_key"`
+	CreatedAt time.Time `json:"created_at" gorm:"default:current_timestamp"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"default:current_timestamp"`
+}
+
 type StudyLoad struct {
 	TeacherID   uuid.UUID
 	Disciplines []DisciplineLoad
@@ -28,9 +34,9 @@ type StudentGroup struct {
 }
 
 type Teacher struct {
-	ID       uuid.UUID `json:"id" binding:"required"`
-	UserName string    `json:"user_name" binding:"required,min=4"`
-	Priority int       `json:"priority"`
+	Model
+	UserName string `json:"user_name" binding:"required,min=4,max=64" gorm:"type:varchar(64);unique"`
+	Priority int    `json:"priority"`
 	// масив з бажаннями викладача
 	// AcademicDegree string // асистент/доцент/професор
 }

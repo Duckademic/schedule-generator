@@ -10,14 +10,14 @@ import (
 	"github.com/google/uuid"
 )
 
-type Controller[T any] interface {
+type Controller[T comparable] interface {
 	Create(*gin.Context)
 	Update(*gin.Context)
 	Delete(*gin.Context)
 	GetAll(*gin.Context)
 }
 
-type basicController[T any] struct {
+type basicController[T comparable] struct {
 	service       services.Service[T]
 	objectParamId string
 }

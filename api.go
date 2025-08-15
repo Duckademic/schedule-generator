@@ -8,6 +8,7 @@ import (
 	"github.com/Duckademic/schedule-generator/services"
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type JSONAPIServer struct {
@@ -18,7 +19,7 @@ type JSONAPIServer struct {
 	lessonController       controllers.LessonController
 }
 
-func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) (*JSONAPIServer, error) {
+func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig, db *gorm.DB) (*JSONAPIServer, error) {
 	gen, err := generator.NewScheduleGenerator(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("can't create generator: %s", err.Error())
@@ -29,7 +30,11 @@ func NewJSONAPIServer(listenAddr string, cfg generator.ScheduleGeneratorConfig) 
 		generator:  *gen,
 	}
 
-	api.teacherController = controllers.NewTeacherController(services.NewTeacherService([]types.Teacher{}))
+	api.teacherController, err = controllers.NewDefaultTeacherController(db)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create teacher controller: %s", err)
+	}
+
 	api.studentGroupController = controllers.NewStudentGroupController(services.NewStudentGroupService([]types.StudentGroup{}))
 	api.lessonController = controllers.NewLessonController(services.NewLessonService([]types.Lesson{}))
 

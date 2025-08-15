@@ -10,6 +10,7 @@ import (
 	"github.com/Duckademic/schedule-generator/repositories"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"gorm.io/gorm"
 )
 
 func init() {
@@ -17,12 +18,12 @@ func init() {
 		log.Fatal("Init error: " + err.Error())
 	}
 
-	_, err := repositories.InitAndSyncDB()
+	db, err := repositories.InitDB()
 	if err != nil {
 		log.Fatal("Init error: " + err.Error())
 	}
 
-	s, err := ServerInit()
+	s, err := ServerInit(db)
 	if err != nil {
 		log.Fatal("Init error: " + err.Error())
 	}
@@ -107,7 +108,7 @@ func ENVLoad() error {
 	return nil
 }
 
-func ServerInit() (*JSONAPIServer, error) {
+func ServerInit(db *gorm.DB) (*JSONAPIServer, error) {
 	release := os.Getenv("RELEASE")
 	if release == "1" {
 		gin.SetMode(gin.ReleaseMode)
@@ -127,13 +128,13 @@ func ServerInit() (*JSONAPIServer, error) {
 		return nil, fmt.Errorf("port not specified at .env file")
 	}
 
-	server, err := NewJSONAPIServer("", generator.ScheduleGeneratorConfig{
+	server, err := NewJSONAPIServer(fmt.Sprintf("localhost:%s", port), generator.ScheduleGeneratorConfig{
 		LessonsValue:       2,
 		Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
 		End:                time.Date(2025, time.May, 31, 0, 0, 0, 0, time.UTC),
 		WorkLessons:        wl,
 		MaxStudentWorkload: 4,
-	})
+	}, db)
 
 	if err != nil {
 		return nil, fmt.Errorf("server creation error: %s", err.Error())
