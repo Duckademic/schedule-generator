@@ -181,7 +181,7 @@ func (bg *BusyGrid) SetDayBusyness(newBusyness []float32, day int) error {
 	}
 
 	for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
-		copy(bg.Grid[day], newBusyness)
+		copy(bg.Grid[day+week*7], newBusyness)
 	}
 
 	return nil

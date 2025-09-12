@@ -57,7 +57,7 @@ func main() {
 			End:                time.Date(2025, time.April, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
-			FillPercentage:     1,
+			FillPercentage:     0.8,
 		})
 		if err != nil {
 			panic(err)
@@ -93,10 +93,10 @@ func main() {
 	gen.CheckSchedule()
 	gen.WriteSchedule()
 
-	err := server.Run()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	// err := server.Run()
+	// if err != nil {
+	// 	log.Fatal(err.Error())
+	// }
 }
 
 func ENVLoad() error {

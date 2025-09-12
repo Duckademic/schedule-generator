@@ -19,6 +19,7 @@ type StudentGroup struct {
 	Name              string
 	MaxLessonsPerDay  int
 	LessonTypeBinding map[*LessonType]*StudentGroupLoad
+	Teachers          []*Teacher
 }
 
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
@@ -101,6 +102,19 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	return
 }
 
+func (sg *StudentGroup) GetWeekDaysPriority() []float32 {
+	res := sg.BusyGrid.GetWeekDaysPriority()
+
+	for _, teacher := range sg.Teachers {
+		teacherPrior := teacher.GetWeekDaysPriority()
+		for i := range res {
+			res[i] *= teacherPrior[i]
+		}
+	}
+
+	return res
+}
+
 // returns -1 if student group hasn't free day
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	if len(sg.LessonTypeBinding[lType].Days) == 0 {
@@ -135,7 +149,7 @@ func (sg *StudentGroup) GetMaxHours(lType *LessonType) int {
 	return 0
 }
 
-func (sg *StudentGroup) AddBindingToLessonType(lType *LessonType, hours int) error {
+func (sg *StudentGroup) AddBindingToLessonType(lType *LessonType, hours int, teacher *Teacher) error {
 	if lType == nil {
 		return fmt.Errorf("lesson type is nil")
 	}
@@ -146,6 +160,9 @@ func (sg *StudentGroup) AddBindingToLessonType(lType *LessonType, hours int) err
 	}
 
 	sg.LessonTypeBinding[lType].RequiredHours += hours
+	if slices.Index(sg.Teachers, teacher) == -1 {
+		sg.Teachers = append(sg.Teachers, teacher)
+	}
 	return nil
 }
 

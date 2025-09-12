@@ -4,8 +4,7 @@ import "fmt"
 
 type LessonService interface {
 	GetAll() []Lesson
-	AddWithoutChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType)
-	AddWithChecks(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
+	AddLesson(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
 	GetWeekLessons(int) []Lesson
 }
 
@@ -28,17 +27,7 @@ func (ls *lessonService) GetAll() []Lesson {
 	return ls.lessons
 }
 
-func (ls *lessonService) AddWithoutChecks(
-	teacher *Teacher,
-	studentGroup *StudentGroup,
-	discipline *Discipline,
-	slot LessonSlot,
-	lType *LessonType,
-) {
-	ls.AddLesson(ls.CreateLesson(teacher, studentGroup, discipline, slot, lType))
-}
-
-func (ls *lessonService) AddWithChecks(
+func (ls *lessonService) AddLesson(
 	teacher *Teacher,
 	studentGroup *StudentGroup,
 	discipline *Discipline,
@@ -56,7 +45,14 @@ func (ls *lessonService) AddWithChecks(
 		return fmt.Errorf("discipline can't be nil")
 	}
 
-	lesson := ls.CreateLesson(teacher, studentGroup, discipline, slot, lType)
+	lesson := &Lesson{
+		Teacher:      teacher,
+		StudentGroup: studentGroup,
+		Discipline:   discipline,
+		Slot:         slot,
+		Type:         lType,
+		Value:        ls.lessonValue,
+	}
 
 	if err := teacher.CheckLesson(lesson); err != nil {
 		return err
@@ -70,34 +66,14 @@ func (ls *lessonService) AddWithChecks(
 		return fmt.Errorf("discipline have enough hours")
 	}
 
-	ls.AddLesson(lesson)
+	// додавання пари
+	ls.lessons = append(ls.lessons, *lesson)
+
+	lesson.StudentGroup.AddLesson(lesson, true)
+	lesson.Teacher.AddLesson(lesson, true)
+
+	lesson.Discipline.Load[0].CurrentHours += ls.lessonValue
 	return nil
-}
-
-func (ls *lessonService) AddLesson(l *Lesson) {
-	ls.lessons = append(ls.lessons, *l)
-
-	l.StudentGroup.AddLesson(l, true)
-	l.Teacher.AddLesson(l, true)
-
-	l.Discipline.Load[0].CurrentHours += ls.lessonValue
-}
-
-func (ls *lessonService) CreateLesson(
-	teacher *Teacher,
-	studentGroup *StudentGroup,
-	discipline *Discipline,
-	slot LessonSlot,
-	lType *LessonType,
-) *Lesson {
-	return &Lesson{
-		Teacher:      teacher,
-		StudentGroup: studentGroup,
-		Discipline:   discipline,
-		Slot:         slot,
-		Type:         lType,
-		Value:        ls.lessonValue,
-	}
 }
 
 func (ls *lessonService) GetWeekLessons(week int) (res []Lesson) {

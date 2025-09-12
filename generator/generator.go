@@ -127,7 +127,7 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 				if studentGroup == nil {
 					return fmt.Errorf("student group %s not found", studentGroupID)
 				}
-				studentGroup.AddBindingToLessonType(lessonType, disciplineLoad.Hours)
+				studentGroup.AddBindingToLessonType(lessonType, disciplineLoad.Hours, teacher)
 				for week := range lessonType.Weeks {
 					studentGroup.AddWeekToLessonType(lessonType, week)
 				}
@@ -171,6 +171,7 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 	return nil
 }
 
+// main function
 func (g *ScheduleGenerator) GenerateSchedule() error {
 	if !g.studyLoadSet {
 		return fmt.Errorf("study loads not set")
@@ -298,7 +299,10 @@ func (g *ScheduleGenerator) generateBoneLessons() error {
 
 					if lessonSlot != -1 {
 						slot := LessonSlot{Day: day, Slot: lessonSlot}
-						g.lessonService.AddWithoutChecks(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
+						err := g.lessonService.AddLesson(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
+						if err != nil {
+							return fmt.Errorf("bone algorithm error: %s", err.Error())
+						}
 						success = true
 					}
 					offset = day - g.boneWeek*7 + 1
@@ -322,7 +326,7 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 				Slot: lesson.Slot.Slot,
 			}
 
-			err := g.lessonService.AddWithChecks(
+			err := g.lessonService.AddLesson(
 				lesson.Teacher,
 				lesson.StudentGroup,
 				lesson.Discipline,
@@ -360,7 +364,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 							Day:  currentDay,
 							Slot: i,
 						}
-						g.lessonService.AddWithChecks(
+						g.lessonService.AddLesson(
 							teacher,
 							group,
 							teacherLoad.Discipline,

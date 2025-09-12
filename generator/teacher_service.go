@@ -1,6 +1,8 @@
 package generator
 
 import (
+	"fmt"
+
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/google/uuid"
 )
@@ -23,6 +25,14 @@ func NewTeacherService(teachers []types.Teacher, busyGrid [][]float32) (TeacherS
 	for i := range teachers {
 		teacher := Teacher{ID: teachers[i].ID, UserName: teachers[i].UserName, Priority: teachers[i].Priority}
 		teacher.BusyGrid = *NewBusyGrid(busyGrid)
+		for _, day := range teachers[i].BusyDays {
+			err := teacher.SetDayBusyness(make([]float32, len(busyGrid[day])), int(day))
+			if err != nil {
+				return nil, fmt.Errorf("teacher %s (%s) has invalid busy day %d (err: %s)",
+					teacher.UserName, teacher.ID, day, err.Error(),
+				)
+			}
+		}
 
 		success := false
 		for j, lowerTeacher := range ts.teachers {
