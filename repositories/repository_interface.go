@@ -3,13 +3,14 @@ package repositories
 import (
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type Repository[T comparable] interface {
+type Repository[T any] interface {
 	Create(*T) error
 	GetFirst(uuid.UUID) *T
 	Update(*T) error
@@ -47,7 +48,7 @@ func CloseDB(db *gorm.DB) error {
 	return nil
 }
 
-type simpleRepository[T comparable] struct {
+type simpleRepository[T any] struct {
 	db *gorm.DB
 }
 
@@ -61,7 +62,7 @@ func (sr *simpleRepository[T]) GetFirst(id uuid.UUID) *T {
 	sr.db.First(&obj, "id = ?", id)
 
 	var zero T
-	if obj == zero {
+	if reflect.DeepEqual(obj, zero) {
 		return nil
 	}
 	return &obj

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service[T comparable] interface {
+type Service[T any] interface {
 	Create(T) (*T, error)
 	Update(T) error
 	Find(uuid.UUID) *T
@@ -15,7 +15,7 @@ type Service[T comparable] interface {
 	GetAll() []T
 }
 
-type gormSimpleService[T comparable] struct {
+type gormSimpleService[T any] struct {
 	repo repositories.Repository[T]
 }
 

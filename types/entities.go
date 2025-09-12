@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type Model struct {
@@ -35,9 +36,9 @@ type StudentGroup struct {
 
 type Teacher struct {
 	Model
-	UserName string `json:"user_name" binding:"required,min=4,max=64" gorm:"type:varchar(64);unique"`
-	Priority int    `json:"priority"`
-	// масив з бажаннями викладача
+	UserName string        `json:"user_name" binding:"required,min=4,max=64" gorm:"type:varchar(64);unique"`
+	Priority int           `json:"priority"`
+	BusyDays pq.Int64Array `json:"busy_days" gorm:"type:integer[]"`
 	// AcademicDegree string // асистент/доцент/професор
 }
 
