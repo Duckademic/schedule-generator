@@ -249,10 +249,10 @@ func (g *ScheduleGenerator) setDayTypes() error {
 			for currentMaxHours < group.group.GetMaxHours(lType) {
 				min := 1000000000
 				mIndex := -1
-				for j := range availableDays {
-					if min > dayOccupationsCount[j] && group.dayPriorities[j] > 1.0 {
-						min = dayOccupationsCount[j]
-						mIndex = j
+				for _, day := range availableDays {
+					if min > dayOccupationsCount[day] && group.dayPriorities[day] > 1.0 {
+						min = dayOccupationsCount[day]
+						mIndex = day
 					}
 				}
 
