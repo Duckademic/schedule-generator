@@ -2,7 +2,6 @@ package generator
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Duckademic/schedule-generator/types"
@@ -147,7 +146,8 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 	return nil
 }
 
-// 0 - teacher, 1 - student group, 2 - discipline, 3 - lesson type service
+// 0 - teacher, 1 - student group, 2 - discipline, 3 - lesson type service.
+// Time complexity O(1)
 func (g *ScheduleGenerator) CheckServices(services []bool) error {
 	checks := append(services, make([]bool, 4-len(services))...)
 
@@ -193,7 +193,6 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return err
 	}
 
-	// порахувати цільову функцію
 	// згенерувати декілька "сусідніх" розкладів
 	// видати найкращий розклад
 
@@ -311,29 +310,24 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 	return nil
 }
 
-func (g *ScheduleGenerator) CheckSchedule() error {
+// Rates schedule fault.
+// Returns -1 if an error accurse.
+// Time complexity O(n^2)
+func (g *ScheduleGenerator) ScheduleFault() float64 {
 	err := g.CheckServices([]bool{true, true})
 	if err != nil {
-		return err
+		return -1
 	}
 
-	teacherWindows := g.teacherService.CountWindows()
-	studentGroupWindows := g.studentGroupService.CountWindows()
-	log.Printf("вікна у викладачів: %d, вінка у студентів: %d", teacherWindows, studentGroupWindows)
+	result := ScheduleResult{}
 
-	disciplineHourDeficit := g.disciplineService.CountHourDeficit()
-	lessonsCount := len(g.lessonService.GetAll())
-	log.Printf("кількість занять: %d, недостача годин для дисциплін: %d", lessonsCount, disciplineHourDeficit)
+	result.TeacherWindows = g.teacherService.CountWindows()
+	result.StudentGroupWindows = g.studentGroupService.CountWindows()
+	result.HoursDeficit = g.disciplineService.CountHourDeficit()
+	result.TeacherLessonOverlapping = g.studentGroupService.CountLessonOverlapping()
+	result.StudentGroupLessonOverlapping = g.teacherService.CountLessonOverlapping()
 
-	studentGroupHourDeficit := g.studentGroupService.CountHourDeficit()
-	teachersHourDeficit := g.teacherService.CountHourDeficit()
-	log.Printf("недостача годин для груп: %d, недостача годин для викладачів: %d", studentGroupHourDeficit, teachersHourDeficit)
-
-	studentGroupLessonOverlapping := g.studentGroupService.CountLessonOverlapping()
-	teacherLessonOverlapping := g.teacherService.CountLessonOverlapping()
-	log.Printf("перекриття у студентів: %d, перекриття у викладачів: %d", studentGroupLessonOverlapping, teacherLessonOverlapping)
-
-	return nil
+	return result.Fault()
 }
 
 func (g *ScheduleGenerator) WriteSchedule() {

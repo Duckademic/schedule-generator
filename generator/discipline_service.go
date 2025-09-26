@@ -42,6 +42,8 @@ func (ds *disciplineService) Find(disciplineID uuid.UUID) *Discipline {
 	return nil
 }
 
+// Returns hour deficit of all disciplines.
+// Time complexity O(n)
 func (ds *disciplineService) CountHourDeficit() (count int) {
 	for _, d := range ds.disciplines {
 		count += d.CountHourDeficit()

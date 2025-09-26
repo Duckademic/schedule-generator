@@ -228,6 +228,8 @@ func (sg *StudentGroup) CountHourDeficit() (count int) {
 	return count
 }
 
+// Returns sum of lesson overlap.
+// Time complexity O(n) [O(n)* lesson type count]
 func (sg *StudentGroup) CountLessonOverlapping() (count int) {
 	for _, load := range sg.LessonTypeBinding {
 		count += sg.BusyGrid.CountLessonOverlapping(load.Lessons)

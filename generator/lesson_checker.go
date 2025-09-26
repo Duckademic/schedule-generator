@@ -28,6 +28,8 @@ func (lc *LessonChecker) AddLesson(lesson *Lesson) {
 // 	return nil
 // }
 
+// Counts hour deficit (0 is minimum).
+// Time complexity O(1)
 func (lc *LessonChecker) CountHourDeficit() int {
 	count := lc.RequiredHours - lc.CurrentHours
 	if count > 0 {

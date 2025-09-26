@@ -65,6 +65,8 @@ func (ts *teacherService) Find(id uuid.UUID) *Teacher {
 	return nil
 }
 
+// Returns sum of all teachers windows
+// Time complexity O(n)
 func (ts *teacherService) CountWindows() (count int) {
 	for _, t := range ts.teachers {
 		count += t.CountWindows()
@@ -80,6 +82,8 @@ func (ts *teacherService) CountHourDeficit() (count int) {
 	return
 }
 
+// Returns sum of all lesson overlap.
+// Time complexity O(n^2)
 func (ts *teacherService) CountLessonOverlapping() (count int) {
 	for _, teacher := range ts.teachers {
 		count += teacher.CountLessonOverlapping(teacher.Lessons)

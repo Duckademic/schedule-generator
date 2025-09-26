@@ -59,6 +59,8 @@ func (sgs *studentGroupService) Find(id uuid.UUID) *StudentGroup {
 	return nil
 }
 
+// Returns sum of all student groups windows
+// Time complexity O(n)
 func (sgs *studentGroupService) CountWindows() (count int) {
 	for _, g := range sgs.studentGroups {
 		count += g.CountWindows()
@@ -74,6 +76,8 @@ func (sgs *studentGroupService) CountHourDeficit() (count int) {
 	return count
 }
 
+// Returns sum of all lesson overlap.
+// Time complexity O(n^2)
 func (sgs *studentGroupService) CountLessonOverlapping() (count int) {
 	for _, studentGroup := range sgs.studentGroups {
 		count += studentGroup.CountLessonOverlapping()

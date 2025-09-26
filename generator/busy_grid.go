@@ -17,15 +17,18 @@ type BusyGrid struct {
 	Grid [][]float32 // додатнє - вільне, від'ємне - зайняте заняттям, 0 - зайняте (інші причини)
 }
 
+// Sets slot to busy or not.
+// Return an error if something went wrong.
+// Time complexity O(1)
 func (bg *BusyGrid) SetOneSlotBusyness(slot LessonSlot, isBusy bool) error {
 	err := bg.CheckSlot(slot)
 	if err != nil {
 		return err
 	}
 
-	var sign float32 = -1
+	var sign float32 = -1 // to change sign of coefficient
 	if isBusy == bg.IsBusy(slot) {
-		sign = 1
+		sign = 1 // if already done
 	}
 	bg.Grid[slot.Day][slot.Slot] = sign * bg.Grid[slot.Day][slot.Slot]
 	return nil
@@ -50,9 +53,13 @@ func (bg *BusyGrid) GetFreeSlots(day int) (slots []float32) {
 	return
 }
 
+// Returns sum of windows (gaps between busy slots).
+// Time complexity O(1) [O(days*slots)]
 func (bg *BusyGrid) CountWindows() (count int) {
+	// Days cycle
 	for i := range len(bg.Grid) {
 		lastBusy := -1
+		// Slots cycle
 		for j := range bg.Grid[i] {
 			if bg.IsBusy(LessonSlot{Day: i, Slot: j}) {
 				if lastBusy != -1 && (j-lastBusy) > 1 {
@@ -75,6 +82,9 @@ func (d DayOutError) Error() string {
 	return fmt.Sprintf("day %d outside of BusyGrid (%d to %d)", d.input, d.min, d.max)
 }
 
+// Checks if day is within a grid.
+// Returns an DayOutError if is not.
+// Time complexity O(1)
 func (bg *BusyGrid) CheckDay(day int) error {
 	if len(bg.Grid) <= day || day < 0 {
 		return DayOutError{input: day, min: 0, max: len(bg.Grid)}
@@ -83,6 +93,9 @@ func (bg *BusyGrid) CheckDay(day int) error {
 	return nil
 }
 
+// Check if slot is within a grid.
+// Return an error if is not.
+// Time complexity O(1)
 func (bg *BusyGrid) CheckSlot(slot LessonSlot) error {
 	err := bg.CheckDay(slot.Day)
 	if err != nil {
@@ -96,6 +109,9 @@ func (bg *BusyGrid) CheckSlot(slot LessonSlot) error {
 	return nil
 }
 
+// Checks if day is busy (when grid value is <= 0).
+// If error accurse return true.
+// Time complexity O(1)
 func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
 	err := bg.CheckSlot(slot)
 	if err != nil {
@@ -199,17 +215,22 @@ func (bg *BusyGrid) CheckWeekDay(day int) error {
 	return nil
 }
 
+// Returns count of overlap lessons. Counts only over lessons.
+// Time complexity O(n)
 func (bg *BusyGrid) CountLessonOverlapping(lessons []*Lesson) (count int) {
 	for _, lesson := range lessons {
-		if bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] >= 0 {
+		// if lesson in not busy slot => overlap or other error
+		if !bg.IsBusy(lesson.Slot) {
 			count++
 		}
 
-		bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] = -bg.Grid[lesson.Slot.Day][lesson.Slot.Slot]
+		// sets slot to free so the next lesson with same slot wouldn't pass the check
+		bg.SetOneSlotBusyness(lesson.Slot, false)
 	}
 
+	// return grid to it first state
 	for _, lesson := range lessons {
-		bg.Grid[lesson.Slot.Day][lesson.Slot.Slot] = -bg.Grid[lesson.Slot.Day][lesson.Slot.Slot]
+		bg.SetOneSlotBusyness(lesson.Slot, true)
 	}
 
 	return count

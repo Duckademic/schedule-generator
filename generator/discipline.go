@@ -34,6 +34,8 @@ func (d *Discipline) EnoughHours() bool {
 	return d.Load[0].RequiredHours <= d.Load[0].CurrentHours
 }
 
+// Returns sum of pending hours of all disciplines.
+// Time complexity O(n)
 func (d *Discipline) CountHourDeficit() (count int) {
 	for _, load := range d.Load {
 		count += load.CountHourDeficit()

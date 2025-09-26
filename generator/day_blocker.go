@@ -25,7 +25,7 @@ type groupExtension struct {
 	freeDayCount  int           // count of free (comfortable) days
 }
 
-// Time difficult O(1)
+// Time complexity O(1)
 func (ge *groupExtension) IsFreeDay(day int) bool {
 	return ge.dayPriorities[day] > 0.99
 }

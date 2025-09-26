@@ -90,7 +90,7 @@ func main() {
 			panic(err)
 		}
 	}()
-	gen.CheckSchedule()
+	log.Printf("Schedule fault: %f", gen.ScheduleFault())
 	gen.WriteSchedule()
 
 	// err := server.Run()
