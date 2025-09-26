@@ -102,19 +102,6 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	return
 }
 
-func (sg *StudentGroup) GetWeekDaysPriority() []float32 {
-	res := sg.BusyGrid.GetWeekDaysPriority()
-
-	for _, teacher := range sg.Teachers {
-		teacherPrior := teacher.GetWeekDaysPriority()
-		for i := range res {
-			res[i] *= teacherPrior[i]
-		}
-	}
-
-	return res
-}
-
 // returns -1 if student group hasn't free day
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	if len(sg.LessonTypeBinding[lType].Days) == 0 {
@@ -247,4 +234,14 @@ func (sg *StudentGroup) CountLessonOverlapping() (count int) {
 	}
 
 	return
+}
+
+// Returns types of lesson for student group
+// Time difficulty O(n)
+func (sg *StudentGroup) GetOwnLessonTypes() []*LessonType {
+	keys := make([]*LessonType, 0, len(sg.LessonTypeBinding))
+	for lt := range sg.LessonTypeBinding {
+		keys = append(keys, lt)
+	}
+	return keys
 }

@@ -35,11 +35,11 @@ var server JSONAPIServer
 func main() {
 	wl := [][]float32{
 		{},
-		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
-		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
-		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
-		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
-		{0.6, 2, 1.8, 1.6, 1.4, 1.2, 1.0},
+		{1, 1, 1, 1, 1, 1, 1},
+		{1, 1, 1, 1, 1, 1, 1},
+		{1, 1, 1, 1, 1, 1, 1},
+		{1, 1, 1, 1, 1, 1, 1},
+		{1, 1, 1, 1, 1, 1, 1},
 		{},
 	}
 
@@ -54,7 +54,7 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.April, 30, 0, 0, 0, 0, time.UTC),
+			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
 			MaxStudentWorkload: 4,
 			FillPercentage:     0.8,

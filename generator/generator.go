@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"log"
-	"slices"
 	"time"
 
 	"github.com/Duckademic/schedule-generator/types"
@@ -177,7 +176,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return fmt.Errorf("study loads not set")
 	}
 
-	err := g.setDayTypes()
+	err := NewDayBlocker(g.studentGroupService.GetAll()).SetDayTypes()
 	if err != nil {
 		return err
 	}
@@ -194,82 +193,9 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return err
 	}
 
-	return nil
-}
-
-func (g *ScheduleGenerator) setDayTypes() error {
-	studentGroups := g.studentGroupService.GetAll()
-
-	type groupExtension struct {
-		group         *StudentGroup
-		dayPriorities []float32
-		countOfSlots  []int
-		freeDayCount  int
-	}
-
-	newGroupExtension := func(group *StudentGroup) *groupExtension {
-		ge := groupExtension{
-			group:         group,
-			dayPriorities: group.GetWeekDaysPriority(),
-			countOfSlots:  make([]int, 7),
-		}
-
-		for day, value := range ge.dayPriorities {
-			if value > 1 {
-				ge.freeDayCount++
-			}
-			ge.countOfSlots[day] = ge.group.CountSlotsAtDay(day)
-		}
-
-		return &ge
-	}
-
-	groupExtensions := make([]groupExtension, len(studentGroups))
-	for i := range studentGroups {
-		groupExtensions[i] = *newGroupExtension(&studentGroups[i])
-	}
-	slices.SortFunc(groupExtensions, func(a, b groupExtension) int {
-		if a.freeDayCount == b.freeDayCount {
-			return 0
-		} else if a.freeDayCount > b.freeDayCount {
-			return 1
-		}
-		return -1
-	})
-
-	lessonTypes := g.lessonTypeService.GetAll()
-	for lessonTypeIndex := range lessonTypes {
-		lType := &lessonTypes[lessonTypeIndex]
-		dayOccupationsCount := make([]int, 7)
-
-		for _, group := range groupExtensions {
-			currentMaxHours := 0
-			availableDays := []int{0, 1, 2, 3, 4, 5, 6}
-
-			for currentMaxHours < group.group.GetMaxHours(lType) {
-				min := 1000000000
-				mIndex := -1
-				for _, day := range availableDays {
-					if min > dayOccupationsCount[day] && group.dayPriorities[day] > 1.0 {
-						min = dayOccupationsCount[day]
-						mIndex = day
-					}
-				}
-
-				if mIndex == -1 {
-					return fmt.Errorf("can't add a day of type %s to group %s", lType.Name, group.group.Name)
-				}
-				err := group.group.AddDayToLessonType(lType, mIndex)
-				if err != nil {
-					dayIndex := slices.Index(availableDays, mIndex)
-					availableDays = append(availableDays[:dayIndex], availableDays[dayIndex+1:]...)
-					continue
-				}
-				dayOccupationsCount[mIndex]++
-				currentMaxHours += int(float64(group.countOfSlots[mIndex]*g.LessonsValue) * g.FillPercentage)
-			}
-		}
-	}
+	// порахувати цільову функцію
+	// згенерувати декілька "сусідніх" розкладів
+	// видати найкращий розклад
 
 	return nil
 }
