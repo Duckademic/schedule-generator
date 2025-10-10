@@ -196,8 +196,18 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return err
 	}
 
-	// згенерувати декілька "сусідніх" розкладів
-	// видати найкращий розклад
+	improver := components.NewImprover(g.lessonService)
+	// CRUNCH - sets start slots for first lesson
+	improver.SubmitChanges()
+	result := true
+	currentFault := g.ScheduleFault()
+	for result {
+		fault := g.ScheduleFault()
+		if fault < currentFault {
+			improver.SubmitChanges()
+		}
+		result = improver.ImproveToNext()
+	}
 
 	return nil
 }
@@ -206,7 +216,7 @@ func (g *ScheduleGenerator) generateBoneLessons() error {
 	teachers := g.teacherService.GetAll()
 
 	for i := range teachers {
-		teacher := &teachers[i]
+		teacher := teachers[i]
 
 		for _, teacherLoad := range teacher.Load {
 			for _, studentGroup := range teacherLoad.Groups {
@@ -273,7 +283,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 	teachers := g.teacherService.GetAll()
 
 	for i := range teachers {
-		teacher := &teachers[i]
+		teacher := teachers[i]
 
 		for _, teacherLoad := range teacher.Load {
 			for _, group := range teacherLoad.Groups {
@@ -315,7 +325,6 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 
 // Rates schedule fault.
 // Returns -1 if an error accurse.
-// Time complexity O(n^2)
 func (g *ScheduleGenerator) ScheduleFault() float64 {
 	err := g.CheckServices([]bool{true, true})
 	if err != nil {
@@ -341,7 +350,7 @@ func (g *ScheduleGenerator) WriteSchedule() {
 	// }
 	tSchedule := make(map[*entities.Teacher]*entities.PersonalSchedule, len(g.teacherService.GetAll()))
 	for i := range g.teacherService.GetAll() {
-		t := &g.teacherService.GetAll()[i]
+		t := g.teacherService.GetAll()[i]
 		tSchedule[t] = &entities.PersonalSchedule{
 			BusyGrid: &t.BusyGrid,
 			Out:      "schedule/" + t.UserName + ".txt",
@@ -350,7 +359,7 @@ func (g *ScheduleGenerator) WriteSchedule() {
 
 	sgSchedule := make(map[*entities.StudentGroup]*entities.PersonalSchedule, len(g.studentGroupService.GetAll()))
 	for i := range g.studentGroupService.GetAll() {
-		sg := &g.studentGroupService.GetAll()[i]
+		sg := g.studentGroupService.GetAll()[i]
 		sgSchedule[sg] = &entities.PersonalSchedule{
 			BusyGrid: &sg.BusyGrid,
 			Out:      "schedule/" + sg.Name + ".txt",
@@ -358,8 +367,8 @@ func (g *ScheduleGenerator) WriteSchedule() {
 	}
 
 	for _, l := range g.lessonService.GetAll() {
-		tSchedule[l.Teacher].InsertLesson(&l)
-		sgSchedule[l.StudentGroup].InsertLesson(&l)
+		tSchedule[l.Teacher].InsertLesson(l)
+		sgSchedule[l.StudentGroup].InsertLesson(l)
 	}
 
 	for _, ps := range tSchedule {

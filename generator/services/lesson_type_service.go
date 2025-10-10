@@ -8,17 +8,17 @@ import (
 
 type LessonTypeService interface {
 	Find(uuid.UUID) *entities.LessonType
-	GetAll() []entities.LessonType
+	GetAll() []*entities.LessonType
 	GetWeekOffset() int
 }
 
 func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) {
 	lts := lessonTypeService{
-		lessonTypes: make([]entities.LessonType, len(lTypes)),
+		lessonTypes: make([]*entities.LessonType, len(lTypes)),
 	}
 
 	for i, lt := range lTypes {
-		lts.lessonTypes[i] = entities.LessonType{
+		lts.lessonTypes[i] = &entities.LessonType{
 			ID:    lt.ID,
 			Name:  lt.Name,
 			Weeks: lt.Weeks,
@@ -30,19 +30,19 @@ func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) 
 }
 
 type lessonTypeService struct {
-	lessonTypes []entities.LessonType
+	lessonTypes []*entities.LessonType
 }
 
 func (lts *lessonTypeService) Find(id uuid.UUID) *entities.LessonType {
 	for i := range lts.lessonTypes {
 		if lts.lessonTypes[i].ID == id {
-			return &lts.lessonTypes[i]
+			return lts.lessonTypes[i]
 		}
 	}
 	return nil
 }
 
-func (lts *lessonTypeService) GetAll() []entities.LessonType {
+func (lts *lessonTypeService) GetAll() []*entities.LessonType {
 	return lts.lessonTypes
 }
 

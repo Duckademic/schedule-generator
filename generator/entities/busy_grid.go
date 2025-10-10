@@ -19,7 +19,6 @@ type BusyGrid struct {
 
 // Sets slot to busy or not.
 // Return an error if something went wrong.
-// Time complexity O(1)
 func (bg *BusyGrid) SetOneSlotBusyness(slot LessonSlot, isBusy bool) error {
 	err := bg.CheckSlot(slot)
 	if err != nil {
@@ -32,103 +31,6 @@ func (bg *BusyGrid) SetOneSlotBusyness(slot LessonSlot, isBusy bool) error {
 	}
 	bg.Grid[slot.Day][slot.Slot] = sign * bg.Grid[slot.Day][slot.Slot]
 	return nil
-}
-
-// вільні слоти - то всі незайняті
-//
-// якщо день за межами сітки (або не матиме слотів) - поверне порожній масив
-func (bg *BusyGrid) GetFreeSlots(day int) (slots []float32) {
-	err := bg.CheckDay(day)
-	if err != nil {
-		return
-	}
-
-	slots = make([]float32, len(bg.Grid[day]))
-
-	for i := range slots {
-		if !bg.IsBusy(LessonSlot{Day: day, Slot: i}) {
-			slots[i] = bg.Grid[day][i]
-		}
-	}
-	return
-}
-
-// Returns sum of windows (gaps between busy slots).
-// Time complexity O(1) [O(days*slots)]
-func (bg *BusyGrid) CountWindows() (count int) {
-	// Days cycle
-	for i := range len(bg.Grid) {
-		lastBusy := -1
-		// Slots cycle
-		for j := range bg.Grid[i] {
-			if bg.IsBusy(LessonSlot{Day: i, Slot: j}) {
-				if lastBusy != -1 && (j-lastBusy) > 1 {
-					count += j - lastBusy - 1
-				}
-				lastBusy = j
-			}
-		}
-	}
-	return
-}
-
-type DayOutError struct {
-	min   int
-	max   int
-	input int
-}
-
-func (d DayOutError) Error() string {
-	return fmt.Sprintf("day %d outside of BusyGrid (%d to %d)", d.input, d.min, d.max)
-}
-
-// Checks if day is within a grid.
-// Returns an DayOutError if is not.
-// Time complexity O(1)
-func (bg *BusyGrid) CheckDay(day int) error {
-	if len(bg.Grid) <= day || day < 0 {
-		return DayOutError{input: day, min: 0, max: len(bg.Grid)}
-	}
-
-	return nil
-}
-
-// Check if slot is within a grid.
-// Return an error if is not.
-// Time complexity O(1)
-func (bg *BusyGrid) CheckSlot(slot LessonSlot) error {
-	err := bg.CheckDay(slot.Day)
-	if err != nil {
-		return err
-	}
-
-	if len(bg.Grid[slot.Day]) <= slot.Slot || slot.Slot < 0 {
-		return fmt.Errorf("slot %d outside of BusyGrid day %d (max: %d)", slot.Slot, slot.Day, len(bg.Grid[slot.Day]))
-	}
-
-	return nil
-}
-
-// Checks if day is busy (when grid value is <= 0).
-// If error accurse return true.
-// Time complexity O(1)
-func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
-	err := bg.CheckSlot(slot)
-	if err != nil {
-		return true
-	}
-
-	return bg.Grid[slot.Day][slot.Slot] <= 0
-}
-
-func (bg *BusyGrid) CountLessonsOn(day int) (count int) {
-	for i := range bg.Grid[day] {
-		if bg.IsBusy(LessonSlot{Day: day, Slot: i}) {
-			count++
-		}
-	}
-
-	return
 }
 
 // returns -1 if there are not free slot for both (bg and other) or length are different
@@ -153,6 +55,176 @@ func (bg *BusyGrid) GetFreeSlot(otherSlots []float32, day int) int {
 	}
 
 	return maxI
+}
+
+// вільні слоти - то всі незайняті
+//
+// якщо день за межами сітки (або не матиме слотів) - поверне порожній масив
+func (bg *BusyGrid) GetFreeSlots(day int) (slots []float32) {
+	err := bg.CheckDay(day)
+	if err != nil {
+		return
+	}
+
+	slots = make([]float32, len(bg.Grid[day]))
+
+	for i := range slots {
+		if !bg.IsBusy(LessonSlot{Day: day, Slot: i}) {
+			slots[i] = bg.Grid[day][i]
+		}
+	}
+	return
+}
+
+func (bg *BusyGrid) SetDayBusyness(newBusyness []float32, day int) error {
+	if err := bg.CheckWeekDay(day); err != nil {
+		return err
+	}
+	if len(newBusyness) != len(bg.Grid[day]) {
+		return fmt.Errorf("incorrect length of the new busyness (%d instead of %d)", len(newBusyness), len(bg.Grid[day]))
+	}
+
+	for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
+		copy(bg.Grid[day+week*7], newBusyness)
+	}
+
+	return nil
+}
+
+// MoveLessonTo moves lesson if it possible.
+// Uses LessonCanBeMoved for check.
+func (bg *BusyGrid) MoveLessonTo(from LessonSlot, to LessonSlot) error {
+	if err := bg.LessonCanBeMoved(from, to); err != nil {
+		return err
+	}
+
+	bg.SetOneSlotBusyness(to, true)
+	bg.SetOneSlotBusyness(from, false)
+	return nil
+}
+
+// ==========================================================================================================
+// ================================================= CHECKS =================================================
+// ==========================================================================================================
+
+func (bg *BusyGrid) CheckWeekDay(day int) error {
+	if day < 0 || day > 6 {
+		return DayOutError{
+			min:   0,
+			max:   6,
+			input: day,
+		}
+	}
+
+	return nil
+}
+
+// DayOutError is returned when a day value is out of range.
+type DayOutError struct {
+	min   int
+	max   int
+	input int
+}
+
+func (d DayOutError) Error() string {
+	return fmt.Sprintf("day %d outside of BusyGrid (%d to %d)", d.input, d.min, d.max)
+}
+
+// Checks if day is within a grid.
+// Returns an DayOutError if is not.
+func (bg *BusyGrid) CheckDay(day int) error {
+	if len(bg.Grid) <= day || day < 0 {
+		return DayOutError{input: day, min: 0, max: len(bg.Grid)}
+	}
+
+	return nil
+}
+
+// SlotOutError is returned when a slot in specific day is out of range.
+type SlotOutError struct {
+	min   int
+	max   int
+	input int
+	day   int
+}
+
+func (s SlotOutError) Error() string {
+	return fmt.Sprintf("slot %d at %d day outside of BusyGrid (%d to %d)", s.input, s.day, s.min, s.max)
+}
+
+// Check if slot is within a grid.
+// Return an error DayOutError or SlotOutError if is not.
+func (bg *BusyGrid) CheckSlot(slot LessonSlot) error {
+	err := bg.CheckDay(slot.Day)
+	if err != nil {
+		return err
+	}
+
+	if len(bg.Grid[slot.Day]) <= slot.Slot || slot.Slot < 0 {
+		return SlotOutError{min: 0, max: len(bg.Grid[slot.Day]), input: slot.Slot, day: slot.Day}
+	}
+
+	return nil
+}
+
+// Checks if day is busy (when grid value is <= 0).
+// If error accurse return true.
+func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
+	err := bg.CheckSlot(slot)
+	if err != nil {
+		return true
+	}
+
+	return bg.Grid[slot.Day][slot.Slot] <= 0
+}
+
+// Returns DayOutError, SlotOutError or others.
+// Without check on lesson (grid value = 0 if it is not lesson)
+func (bg *BusyGrid) LessonCanBeMoved(from LessonSlot, to LessonSlot) error {
+	if err := bg.CheckSlot(from); err != nil {
+		return err
+	}
+	if err := bg.CheckSlot(to); err != nil {
+		return err
+	}
+
+	if bg.IsBusy(to) {
+		return fmt.Errorf("slot is busy")
+	}
+
+	return nil
+}
+
+// ==========================================================================================================
+// =============================================== STATISTICS ===============================================
+// ==========================================================================================================
+
+// Returns sum of windows (gaps between busy slots).
+func (bg *BusyGrid) CountWindows() (count int) {
+	// Days cycle
+	for i := range len(bg.Grid) {
+		lastBusy := -1
+		// Slots cycle
+		for j := range bg.Grid[i] {
+			if bg.IsBusy(LessonSlot{Day: i, Slot: j}) {
+				if lastBusy != -1 && (j-lastBusy) > 1 {
+					count += j - lastBusy - 1
+				}
+				lastBusy = j
+			}
+		}
+	}
+	return
+}
+
+func (bg *BusyGrid) CountLessonsOn(day int) (count int) {
+	for i := range bg.Grid[day] {
+		if bg.IsBusy(LessonSlot{Day: day, Slot: i}) {
+			count++
+		}
+	}
+
+	return
 }
 
 // returns slices which contains 7 elements
@@ -188,35 +260,7 @@ func (bg *BusyGrid) CountSlotsAtDay(day int) (count int) {
 	return
 }
 
-func (bg *BusyGrid) SetDayBusyness(newBusyness []float32, day int) error {
-	if err := bg.CheckWeekDay(day); err != nil {
-		return err
-	}
-	if len(newBusyness) != len(bg.Grid[day]) {
-		return fmt.Errorf("incorrect length of the new busyness (%d instead of %d)", len(newBusyness), len(bg.Grid[day]))
-	}
-
-	for week := 0; bg.CheckDay(day+week*7) == nil; week++ {
-		copy(bg.Grid[day+week*7], newBusyness)
-	}
-
-	return nil
-}
-
-func (bg *BusyGrid) CheckWeekDay(day int) error {
-	if day < 0 || day > 6 {
-		return DayOutError{
-			min:   0,
-			max:   6,
-			input: day,
-		}
-	}
-
-	return nil
-}
-
 // Returns count of overlap lessons. Counts only over lessons.
-// Time complexity O(n)
 func (bg *BusyGrid) CountLessonOverlapping(lessons []*Lesson) (count int) {
 	for _, lesson := range lessons {
 		// if lesson in not busy slot => overlap or other error

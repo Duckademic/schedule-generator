@@ -7,9 +7,10 @@ import (
 )
 
 type LessonService interface {
-	GetAll() []entities.Lesson
+	GetAll() []*entities.Lesson
 	AddLesson(*entities.Teacher, *entities.StudentGroup, *entities.Discipline, entities.LessonSlot, *entities.LessonType) error
-	GetWeekLessons(int) []entities.Lesson
+	GetWeekLessons(int) []*entities.Lesson
+	MoveLesson(*entities.Lesson, entities.LessonSlot) error
 }
 
 func NewLessonService(lessonValue int) (LessonService, error) {
@@ -23,11 +24,11 @@ func NewLessonService(lessonValue int) (LessonService, error) {
 }
 
 type lessonService struct {
-	lessons     []entities.Lesson
+	lessons     []*entities.Lesson
 	lessonValue int
 }
 
-func (ls *lessonService) GetAll() []entities.Lesson {
+func (ls *lessonService) GetAll() []*entities.Lesson {
 	return ls.lessons
 }
 
@@ -71,7 +72,7 @@ func (ls *lessonService) AddLesson(
 	}
 
 	// додавання пари
-	ls.lessons = append(ls.lessons, *lesson)
+	ls.lessons = append(ls.lessons, lesson)
 
 	lesson.StudentGroup.AddLesson(lesson, true)
 	lesson.Teacher.AddLesson(lesson, true)
@@ -80,11 +81,27 @@ func (ls *lessonService) AddLesson(
 	return nil
 }
 
-func (ls *lessonService) GetWeekLessons(week int) (res []entities.Lesson) {
+func (ls *lessonService) GetWeekLessons(week int) (res []*entities.Lesson) {
 	for _, l := range ls.lessons {
 		if l.Slot.Day/7 == week {
 			res = append(res, l)
 		}
 	}
 	return
+}
+
+// MoveLesson moves lesson to "to" slot.
+// Return an error if something went wrong.
+func (ls *lessonService) MoveLesson(lesson *entities.Lesson, to entities.LessonSlot) error {
+	if err := lesson.Teacher.LessonCanBeMoved(lesson.Slot, to); err != nil {
+		return err
+	}
+	if err := lesson.StudentGroup.LessonCanBeMoved(lesson.Slot, to); err != nil {
+		return err
+	}
+
+	lesson.Teacher.MoveLessonTo(lesson.Slot, to)
+	lesson.StudentGroup.MoveLessonTo(lesson.Slot, to)
+	lesson.Slot = to
+	return nil
 }

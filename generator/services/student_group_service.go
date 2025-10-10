@@ -7,7 +7,7 @@ import (
 )
 
 type StudentGroupService interface {
-	GetAll() []entities.StudentGroup
+	GetAll() []*entities.StudentGroup
 	Find(uuid.UUID) *entities.StudentGroup
 	CountWindows() int
 	CountHourDeficit() int
@@ -15,22 +15,22 @@ type StudentGroupService interface {
 }
 
 type studentGroupService struct {
-	studentGroups []entities.StudentGroup
+	studentGroups []*entities.StudentGroup
 }
 
 func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int, busyGrid [][]float32) (StudentGroupService, error) {
 	sgs := studentGroupService{
-		studentGroups: make([]entities.StudentGroup, len(studentGroups)),
+		studentGroups: make([]*entities.StudentGroup, len(studentGroups)),
 	}
 
 	for i := range studentGroups {
-		sgs.studentGroups[i] = entities.StudentGroup{
+		sgs.studentGroups[i] = &entities.StudentGroup{
 			ID:                studentGroups[i].ID,
 			Name:              studentGroups[i].Name,
 			MaxLessonsPerDay:  maxLessonsPerDay,
 			LessonTypeBinding: map[*entities.LessonType]*entities.StudentGroupLoad{},
 		}
-		studentGroup := &sgs.studentGroups[i]
+		studentGroup := sgs.studentGroups[i]
 		studentGroup.BusyGrid = *entities.NewBusyGrid(busyGrid)
 
 		md := studentGroups[i].MilitaryDay - 1
@@ -45,7 +45,7 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 	return &sgs, nil
 }
 
-func (sgs *studentGroupService) GetAll() []entities.StudentGroup {
+func (sgs *studentGroupService) GetAll() []*entities.StudentGroup {
 	return sgs.studentGroups
 }
 
@@ -53,7 +53,7 @@ func (sgs *studentGroupService) GetAll() []entities.StudentGroup {
 func (sgs *studentGroupService) Find(id uuid.UUID) *entities.StudentGroup {
 	for i := range sgs.studentGroups {
 		if sgs.studentGroups[i].ID == id {
-			return &sgs.studentGroups[i]
+			return sgs.studentGroups[i]
 		}
 	}
 

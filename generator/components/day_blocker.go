@@ -12,7 +12,7 @@ type DayBlocker interface {
 	SetDayTypes() error // throw an error if at not enough days per group
 }
 
-func NewDayBlocker(studentGroups []entities.StudentGroup) DayBlocker {
+func NewDayBlocker(studentGroups []*entities.StudentGroup) DayBlocker {
 	db := dayBlocker{}
 	db.setGroupExtensions(studentGroups)
 
@@ -39,7 +39,7 @@ func newGroupExtension(group *entities.StudentGroup) *groupExtension {
 		countOfSlots:  make([]int, 7),
 	}
 
-	for day, _ := range ge.dayPriorities {
+	for day := range ge.dayPriorities {
 		if ge.IsFreeDay(day) {
 			ge.freeDayCount++
 		}
@@ -100,10 +100,10 @@ func (db *dayBlocker) SetDayTypes() error {
 	return nil
 }
 
-func (db *dayBlocker) setGroupExtensions(studentGroups []entities.StudentGroup) {
+func (db *dayBlocker) setGroupExtensions(studentGroups []*entities.StudentGroup) {
 	db.groupExtensions = make([]groupExtension, len(studentGroups))
 	for i := range studentGroups {
-		db.groupExtensions[i] = *newGroupExtension(&studentGroups[i])
+		db.groupExtensions[i] = *newGroupExtension(studentGroups[i])
 	}
 	// sorts by free day count in increasing order
 	slices.SortFunc(db.groupExtensions, func(a, b groupExtension) int {

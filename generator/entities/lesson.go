@@ -5,6 +5,11 @@ type LessonSlot struct {
 	Slot int
 }
 
+// // LessonGroup contains data for correct lesson swapping. Only 1 lesson per week
+// type LessonGroup struct {
+// 	Structure []*Lesson //index - week
+// }
+
 type Lesson struct {
 	Slot         LessonSlot
 	Value        int // кількість академічних годин
