@@ -1,8 +1,10 @@
-package generator
+package components
 
 import (
 	"fmt"
 	"slices"
+
+	"github.com/Duckademic/schedule-generator/generator/entities"
 )
 
 // DayBlocker selects days for student groups
@@ -10,7 +12,7 @@ type DayBlocker interface {
 	SetDayTypes() error // throw an error if at not enough days per group
 }
 
-func NewDayBlocker(studentGroups []StudentGroup) DayBlocker {
+func NewDayBlocker(studentGroups []entities.StudentGroup) DayBlocker {
 	db := dayBlocker{}
 	db.setGroupExtensions(studentGroups)
 
@@ -19,10 +21,10 @@ func NewDayBlocker(studentGroups []StudentGroup) DayBlocker {
 
 // Extension of group (store data to not calculate every time)
 type groupExtension struct {
-	group         *StudentGroup // Original StudentGroup
-	dayPriorities []float32     // Bigger number - better day for lessons (<0.99 if day is uncomfortable) (length - 7)
-	countOfSlots  []int         // count of slots at every day (length - 7)
-	freeDayCount  int           // count of free (comfortable) days
+	group         *entities.StudentGroup // Original StudentGroup
+	dayPriorities []float32              // Bigger number - better day for lessons (<0.99 if day is uncomfortable) (length - 7)
+	countOfSlots  []int                  // count of slots at every day (length - 7)
+	freeDayCount  int                    // count of free (comfortable) days
 }
 
 // Time complexity O(1)
@@ -30,7 +32,7 @@ func (ge *groupExtension) IsFreeDay(day int) bool {
 	return ge.dayPriorities[day] > 0.99
 }
 
-func newGroupExtension(group *StudentGroup) *groupExtension {
+func newGroupExtension(group *entities.StudentGroup) *groupExtension {
 	ge := groupExtension{
 		group:         group,
 		dayPriorities: group.GetWeekDaysPriority(),
@@ -98,7 +100,7 @@ func (db *dayBlocker) SetDayTypes() error {
 	return nil
 }
 
-func (db *dayBlocker) setGroupExtensions(studentGroups []StudentGroup) {
+func (db *dayBlocker) setGroupExtensions(studentGroups []entities.StudentGroup) {
 	db.groupExtensions = make([]groupExtension, len(studentGroups))
 	for i := range studentGroups {
 		db.groupExtensions[i] = *newGroupExtension(&studentGroups[i])
@@ -115,8 +117,8 @@ func (db *dayBlocker) setGroupExtensions(studentGroups []StudentGroup) {
 }
 
 type SetDayTypeError struct {
-	LessonType    *LessonType
-	StudentGroup  *StudentGroup
+	LessonType    *entities.LessonType
+	StudentGroup  *entities.StudentGroup
 	DayPriorities []float32
 	AvailableDays []int
 }

@@ -1,4 +1,4 @@
-package generator
+package entities
 
 type LessonSlot struct {
 	Day  int
@@ -6,7 +6,6 @@ type LessonSlot struct {
 }
 
 type Lesson struct {
-	// ID           uuid.UUID
 	Slot         LessonSlot
 	Value        int // кількість академічних годин
 	Type         *LessonType

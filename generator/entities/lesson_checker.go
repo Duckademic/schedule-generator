@@ -1,4 +1,4 @@
-package generator
+package entities
 
 type LessonChecker struct {
 	Lessons       []*Lesson

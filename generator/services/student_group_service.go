@@ -1,36 +1,37 @@
-package generator
+package services
 
 import (
+	"github.com/Duckademic/schedule-generator/generator/entities"
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/google/uuid"
 )
 
 type StudentGroupService interface {
-	GetAll() []StudentGroup
-	Find(uuid.UUID) *StudentGroup
+	GetAll() []entities.StudentGroup
+	Find(uuid.UUID) *entities.StudentGroup
 	CountWindows() int
 	CountHourDeficit() int
 	CountLessonOverlapping() int
 }
 
 type studentGroupService struct {
-	studentGroups []StudentGroup
+	studentGroups []entities.StudentGroup
 }
 
 func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int, busyGrid [][]float32) (StudentGroupService, error) {
 	sgs := studentGroupService{
-		studentGroups: make([]StudentGroup, len(studentGroups)),
+		studentGroups: make([]entities.StudentGroup, len(studentGroups)),
 	}
 
 	for i := range studentGroups {
-		sgs.studentGroups[i] = StudentGroup{
+		sgs.studentGroups[i] = entities.StudentGroup{
 			ID:                studentGroups[i].ID,
 			Name:              studentGroups[i].Name,
 			MaxLessonsPerDay:  maxLessonsPerDay,
-			LessonTypeBinding: map[*LessonType]*StudentGroupLoad{},
+			LessonTypeBinding: map[*entities.LessonType]*entities.StudentGroupLoad{},
 		}
 		studentGroup := &sgs.studentGroups[i]
-		studentGroup.BusyGrid = *NewBusyGrid(busyGrid)
+		studentGroup.BusyGrid = *entities.NewBusyGrid(busyGrid)
 
 		md := studentGroups[i].MilitaryDay - 1
 		if md != -1 {
@@ -44,12 +45,12 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 	return &sgs, nil
 }
 
-func (sgs *studentGroupService) GetAll() []StudentGroup {
+func (sgs *studentGroupService) GetAll() []entities.StudentGroup {
 	return sgs.studentGroups
 }
 
 // return nil if not found
-func (sgs *studentGroupService) Find(id uuid.UUID) *StudentGroup {
+func (sgs *studentGroupService) Find(id uuid.UUID) *entities.StudentGroup {
 	for i := range sgs.studentGroups {
 		if sgs.studentGroups[i].ID == id {
 			return &sgs.studentGroups[i]

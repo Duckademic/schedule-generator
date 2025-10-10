@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Duckademic/schedule-generator/generator/components"
+	"github.com/Duckademic/schedule-generator/generator/entities"
+	"github.com/Duckademic/schedule-generator/generator/services"
 	"github.com/Duckademic/schedule-generator/types"
 )
 
@@ -19,11 +22,11 @@ type ScheduleGeneratorConfig struct {
 type ScheduleGenerator struct {
 	ScheduleGeneratorConfig
 	BusyGrid            [][]float32
-	teacherService      TeacherService
-	studentGroupService StudentGroupService
-	lessonService       LessonService
-	disciplineService   DisciplineService
-	lessonTypeService   LessonTypeService
+	teacherService      services.TeacherService
+	studentGroupService services.StudentGroupService
+	lessonService       services.LessonService
+	disciplineService   services.DisciplineService
+	lessonTypeService   services.LessonTypeService
 	boneWeek            int
 	studyLoadSet        bool
 }
@@ -47,7 +50,7 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 		index++
 	}
 
-	ls, err := NewLessonService(cfg.LessonsValue)
+	ls, err := services.NewLessonService(cfg.LessonsValue)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +60,7 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 }
 
 func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
-	ts, err := NewTeacherService(teachers, g.BusyGrid)
+	ts, err := services.NewTeacherService(teachers, g.BusyGrid)
 	if err != nil {
 		return err
 	}
@@ -67,7 +70,7 @@ func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
 }
 
 func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup) error {
-	sgs, err := NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.BusyGrid)
+	sgs, err := services.NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.BusyGrid)
 	if err != nil {
 		return err
 	}
@@ -77,7 +80,7 @@ func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup)
 }
 
 func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error {
-	ds, err := NewDisciplineService(disciplines)
+	ds, err := services.NewDisciplineService(disciplines)
 	if err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error
 }
 
 func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
-	lts, err := NewLessonTypeService(lTypes)
+	lts, err := services.NewLessonTypeService(lTypes)
 	if err != nil {
 		return err
 	}
@@ -119,7 +122,7 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 				return fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
 			}
 
-			studentGroups := make([]*StudentGroup, len(disciplineLoad.GroupsID))
+			studentGroups := make([]*entities.StudentGroup, len(disciplineLoad.GroupsID))
 			for j, studentGroupID := range disciplineLoad.GroupsID {
 				studentGroup := g.studentGroupService.Find(studentGroupID)
 				if studentGroup == nil {
@@ -176,7 +179,7 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return fmt.Errorf("study loads not set")
 	}
 
-	err := NewDayBlocker(g.studentGroupService.GetAll()).SetDayTypes()
+	err := components.NewDayBlocker(g.studentGroupService.GetAll()).SetDayTypes()
 	if err != nil {
 		return err
 	}
@@ -223,7 +226,7 @@ func (g *ScheduleGenerator) generateBoneLessons() error {
 					lessonSlot := teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
 
 					if lessonSlot != -1 {
-						slot := LessonSlot{Day: day, Slot: lessonSlot}
+						slot := entities.LessonSlot{Day: day, Slot: lessonSlot}
 						err := g.lessonService.AddLesson(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
 						if err != nil {
 							return fmt.Errorf("bone algorithm error: %s", err.Error())
@@ -246,7 +249,7 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 	outOfGrid := false
 	for !outOfGrid {
 		for _, lesson := range boneLessons {
-			newSlot := LessonSlot{
+			newSlot := entities.LessonSlot{
 				Day:  lesson.Slot.Day%7 + currentWeek*7,
 				Slot: lesson.Slot.Slot,
 			}
@@ -258,7 +261,7 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 				newSlot,
 				lesson.Type,
 			)
-			if _, ok := err.(DayOutError); ok {
+			if _, ok := err.(entities.DayOutError); ok {
 				outOfGrid = true
 			}
 		}
@@ -285,7 +288,7 @@ func (g *ScheduleGenerator) addMissingLessons() error {
 					}
 
 					for i := range g.BusyGrid[currentDay] {
-						slot := LessonSlot{
+						slot := entities.LessonSlot{
 							Day:  currentDay,
 							Slot: i,
 						}
@@ -319,7 +322,7 @@ func (g *ScheduleGenerator) ScheduleFault() float64 {
 		return -1
 	}
 
-	result := ScheduleResult{}
+	result := entities.ScheduleResult{}
 
 	result.TeacherWindows = g.teacherService.CountWindows()
 	result.StudentGroupWindows = g.studentGroupService.CountWindows()
@@ -336,21 +339,21 @@ func (g *ScheduleGenerator) WriteSchedule() {
 	// 		l.Teacher.UserName, l.Discipline.Name, l.StudentGroup.Name, l.Slot.Day, l.Slot.Slot,
 	// 	)
 	// }
-	tSchedule := make(map[*Teacher]*PersonalSchedule, len(g.teacherService.GetAll()))
+	tSchedule := make(map[*entities.Teacher]*entities.PersonalSchedule, len(g.teacherService.GetAll()))
 	for i := range g.teacherService.GetAll() {
 		t := &g.teacherService.GetAll()[i]
-		tSchedule[t] = &PersonalSchedule{
-			busyGrid: &t.BusyGrid,
-			out:      "schedule/" + t.UserName + ".txt",
+		tSchedule[t] = &entities.PersonalSchedule{
+			BusyGrid: &t.BusyGrid,
+			Out:      "schedule/" + t.UserName + ".txt",
 		}
 	}
 
-	sgSchedule := make(map[*StudentGroup]*PersonalSchedule, len(g.studentGroupService.GetAll()))
+	sgSchedule := make(map[*entities.StudentGroup]*entities.PersonalSchedule, len(g.studentGroupService.GetAll()))
 	for i := range g.studentGroupService.GetAll() {
 		sg := &g.studentGroupService.GetAll()[i]
-		sgSchedule[sg] = &PersonalSchedule{
-			busyGrid: &sg.BusyGrid,
-			out:      "schedule/" + sg.Name + ".txt",
+		sgSchedule[sg] = &entities.PersonalSchedule{
+			BusyGrid: &sg.BusyGrid,
+			Out:      "schedule/" + sg.Name + ".txt",
 		}
 	}
 
@@ -360,12 +363,12 @@ func (g *ScheduleGenerator) WriteSchedule() {
 	}
 
 	for _, ps := range tSchedule {
-		ps.WritePS(func(l *Lesson) string {
+		ps.WritePS(func(l *entities.Lesson) string {
 			return fmt.Sprintf("дисципліна: %s, тип: %s, група: %s", l.Discipline.Name, l.Type.Name, l.StudentGroup.Name)
 		})
 	}
 	for _, ps := range sgSchedule {
-		ps.WritePS(func(l *Lesson) string {
+		ps.WritePS(func(l *entities.Lesson) string {
 			return fmt.Sprintf("дисципліна: %s, тип: %s, викладач: %s", l.Discipline.Name, l.Type.Name, l.Teacher.UserName)
 		})
 	}

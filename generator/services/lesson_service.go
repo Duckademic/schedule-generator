@@ -1,11 +1,15 @@
-package generator
+package services
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/Duckademic/schedule-generator/generator/entities"
+)
 
 type LessonService interface {
-	GetAll() []Lesson
-	AddLesson(*Teacher, *StudentGroup, *Discipline, LessonSlot, *LessonType) error
-	GetWeekLessons(int) []Lesson
+	GetAll() []entities.Lesson
+	AddLesson(*entities.Teacher, *entities.StudentGroup, *entities.Discipline, entities.LessonSlot, *entities.LessonType) error
+	GetWeekLessons(int) []entities.Lesson
 }
 
 func NewLessonService(lessonValue int) (LessonService, error) {
@@ -19,20 +23,20 @@ func NewLessonService(lessonValue int) (LessonService, error) {
 }
 
 type lessonService struct {
-	lessons     []Lesson
+	lessons     []entities.Lesson
 	lessonValue int
 }
 
-func (ls *lessonService) GetAll() []Lesson {
+func (ls *lessonService) GetAll() []entities.Lesson {
 	return ls.lessons
 }
 
 func (ls *lessonService) AddLesson(
-	teacher *Teacher,
-	studentGroup *StudentGroup,
-	discipline *Discipline,
-	slot LessonSlot,
-	lType *LessonType,
+	teacher *entities.Teacher,
+	studentGroup *entities.StudentGroup,
+	discipline *entities.Discipline,
+	slot entities.LessonSlot,
+	lType *entities.LessonType,
 ) error {
 	// загальні перевірки
 	if teacher == nil {
@@ -45,7 +49,7 @@ func (ls *lessonService) AddLesson(
 		return fmt.Errorf("discipline can't be nil")
 	}
 
-	lesson := &Lesson{
+	lesson := &entities.Lesson{
 		Teacher:      teacher,
 		StudentGroup: studentGroup,
 		Discipline:   discipline,
@@ -76,7 +80,7 @@ func (ls *lessonService) AddLesson(
 	return nil
 }
 
-func (ls *lessonService) GetWeekLessons(week int) (res []Lesson) {
+func (ls *lessonService) GetWeekLessons(week int) (res []entities.Lesson) {
 	for _, l := range ls.lessons {
 		if l.Slot.Day/7 == week {
 			res = append(res, l)

@@ -1,4 +1,4 @@
-package generator
+package entities
 
 import (
 	"fmt"
@@ -6,43 +6,43 @@ import (
 )
 
 type PersonalSchedule struct {
-	busyGrid *BusyGrid
-	lessons  []*Lesson
-	out      string // шлях до текстового файлу
+	BusyGrid *BusyGrid
+	Lessons  []*Lesson
+	Out      string // шлях до текстового файлу
 }
 
 func (ps *PersonalSchedule) InsertLesson(l *Lesson) {
-	index := len(ps.lessons)
-	for i := range ps.lessons {
-		if ps.lessons[i].After(l) {
+	index := len(ps.Lessons)
+	for i := range ps.Lessons {
+		if ps.Lessons[i].After(l) {
 			index = i
 			break
 		}
 	}
 
-	ps.lessons = append(ps.lessons[:index], append([]*Lesson{l}, ps.lessons[index:]...)...)
+	ps.Lessons = append(ps.Lessons[:index], append([]*Lesson{l}, ps.Lessons[index:]...)...)
 }
 
 func (ps *PersonalSchedule) WritePS(lessonToString func(*Lesson) string) error {
-	file, err := os.Create(ps.out)
+	file, err := os.Create(ps.Out)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	lessonIndex := 0
-	for day := range ps.busyGrid.Grid {
+	for day := range ps.BusyGrid.Grid {
 		dayStr := []string{"Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"}[day%7]
 		_, err := file.WriteString(fmt.Sprintf("%s (день %d) \n", dayStr, day))
 		if err != nil {
 			return err
 		}
 
-		for slot := range ps.busyGrid.Grid[day] {
+		for slot := range ps.BusyGrid.Grid[day] {
 			var lStr string
 			currentSlot := LessonSlot{Day: day, Slot: slot}
-			if len(ps.lessons) != lessonIndex && ps.lessons[lessonIndex].Slot == currentSlot {
-				lStr = lessonToString(ps.lessons[lessonIndex])
+			if len(ps.Lessons) != lessonIndex && ps.Lessons[lessonIndex].Slot == currentSlot {
+				lStr = lessonToString(ps.Lessons[lessonIndex])
 				lessonIndex++
 			}
 

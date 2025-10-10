@@ -1,4 +1,4 @@
-package generator
+package entities
 
 type ScheduleResult struct {
 	TeacherWindows                int // Sum of teachers windows
