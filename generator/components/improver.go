@@ -19,6 +19,7 @@ type improver struct {
 	lessonService services.LessonService
 	currentLesson int
 	startSlot     entities.LessonSlot // home slot for current lesson
+	currentSlot   entities.LessonSlot // start slot for improving current lesson
 }
 
 // looks for free slots to selected lessons. move lesson to it if found
@@ -26,10 +27,11 @@ func (imp *improver) ImproveToNext() bool {
 	lessons := imp.lessonService.GetAll()
 	// runs until finds free slot or be out of lessons
 	for {
+		imp.currentSlot.Slot += 1 // moves to the next slot instead of keeping the lesson in the same one
 		currentLesson := lessons[imp.currentLesson]
 		dayOutOfRange := false
-		startSlot := currentLesson.Slot.Slot
-		for day := currentLesson.Slot.Day; !dayOutOfRange; day++ {
+		startSlot := imp.currentSlot.Slot // for the first entry, this value should match the current slot value
+		for day := imp.currentSlot.Day; !dayOutOfRange; day++ {
 			slotOutOfRange := false
 			for slot := startSlot; !slotOutOfRange && !dayOutOfRange; slot++ {
 				err := imp.lessonService.MoveLesson(currentLesson, entities.LessonSlot{Slot: slot, Day: day})
@@ -39,10 +41,11 @@ func (imp *improver) ImproveToNext() bool {
 				case entities.SlotOutError:
 					slotOutOfRange = true
 				case nil:
+					imp.currentSlot = currentLesson.Slot
 					return true
 				}
 			}
-			startSlot = 0
+			startSlot = 0 // starts slots from beginning
 		}
 
 		if currentLesson.Slot != imp.startSlot {
@@ -54,6 +57,7 @@ func (imp *improver) ImproveToNext() bool {
 			return false
 		}
 		imp.startSlot = lessons[imp.currentLesson].Slot
+		imp.currentSlot = entities.LessonSlot{Day: 0, Slot: 0}
 	}
 }
 

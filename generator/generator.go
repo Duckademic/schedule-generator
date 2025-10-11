@@ -202,6 +202,9 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	result := true
 	currentFault := g.ScheduleFault()
 	for result {
+		if currentFault <= 0.000001 {
+			break
+		}
 		fault := g.ScheduleFault()
 		if fault < currentFault {
 			improver.SubmitChanges()

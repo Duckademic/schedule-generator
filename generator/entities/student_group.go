@@ -22,6 +22,10 @@ type StudentGroup struct {
 	Teachers          []*Teacher
 }
 
+// ==========================================================================================================
+// ========================================== BusyGrid OVERRIDES ============================================
+// ==========================================================================================================
+
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
 	if err := sg.BusyGrid.CheckSlot(slot); err != nil {
 		return true
@@ -101,6 +105,31 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	}
 	return
 }
+
+func (sg *StudentGroup) MoveLessonTo(lesson *Lesson, to LessonSlot) error {
+	if err := sg.LessonCanBeMoved(lesson, to); err != nil {
+		return err
+	}
+
+	return sg.BusyGrid.MoveLessonTo(lesson, to)
+}
+
+// Additionally checks the type of day
+func (sg *StudentGroup) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
+	if err := sg.BusyGrid.LessonCanBeMoved(lesson, to); err != nil {
+		return err
+	}
+
+	if !sg.IsDayOfType(lesson.Type, to.Day) {
+		return fmt.Errorf("%d is not day of the type %s", to.Day, lesson.Type.Name)
+	}
+
+	return nil
+}
+
+// ==========================================================================================================
+// ========================================== LessonType BINDING ============================================
+// ==========================================================================================================
 
 // returns -1 if student group hasn't free day
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
@@ -229,7 +258,6 @@ func (sg *StudentGroup) CountHourDeficit() (count int) {
 }
 
 // Returns sum of lesson overlap.
-// Time complexity O(n) [O(n)* lesson type count]
 func (sg *StudentGroup) CountLessonOverlapping() (count int) {
 	for _, load := range sg.LessonTypeBinding {
 		count += sg.BusyGrid.CountLessonOverlapping(load.Lessons)
@@ -239,7 +267,6 @@ func (sg *StudentGroup) CountLessonOverlapping() (count int) {
 }
 
 // Returns types of lesson for student group
-// Time difficulty O(n)
 func (sg *StudentGroup) GetOwnLessonTypes() []*LessonType {
 	keys := make([]*LessonType, 0, len(sg.LessonTypeBinding))
 	for lt := range sg.LessonTypeBinding {

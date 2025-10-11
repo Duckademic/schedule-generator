@@ -93,15 +93,19 @@ func (ls *lessonService) GetWeekLessons(week int) (res []*entities.Lesson) {
 // MoveLesson moves lesson to "to" slot.
 // Return an error if something went wrong.
 func (ls *lessonService) MoveLesson(lesson *entities.Lesson, to entities.LessonSlot) error {
-	if err := lesson.Teacher.LessonCanBeMoved(lesson.Slot, to); err != nil {
+	if err := lesson.Teacher.LessonCanBeMoved(lesson, to); err != nil {
 		return err
 	}
-	if err := lesson.StudentGroup.LessonCanBeMoved(lesson.Slot, to); err != nil {
+	if err := lesson.StudentGroup.LessonCanBeMoved(lesson, to); err != nil {
 		return err
 	}
 
-	lesson.Teacher.MoveLessonTo(lesson.Slot, to)
-	lesson.StudentGroup.MoveLessonTo(lesson.Slot, to)
+	if err := lesson.Teacher.MoveLessonTo(lesson, to); err != nil {
+		panic("pass the check before, but error accurse")
+	}
+	if err := lesson.StudentGroup.MoveLessonTo(lesson, to); err != nil {
+		panic("pass the check before, but error accurse")
+	}
 	lesson.Slot = to
 	return nil
 }

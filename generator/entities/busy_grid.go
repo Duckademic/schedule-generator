@@ -93,13 +93,13 @@ func (bg *BusyGrid) SetDayBusyness(newBusyness []float32, day int) error {
 
 // MoveLessonTo moves lesson if it possible.
 // Uses LessonCanBeMoved for check.
-func (bg *BusyGrid) MoveLessonTo(from LessonSlot, to LessonSlot) error {
-	if err := bg.LessonCanBeMoved(from, to); err != nil {
+func (bg *BusyGrid) MoveLessonTo(lesson *Lesson, to LessonSlot) error {
+	if err := bg.LessonCanBeMoved(lesson, to); err != nil {
 		return err
 	}
 
 	bg.SetOneSlotBusyness(to, true)
-	bg.SetOneSlotBusyness(from, false)
+	bg.SetOneSlotBusyness(lesson.Slot, false)
 	return nil
 }
 
@@ -180,10 +180,14 @@ func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
 
 // Returns DayOutError, SlotOutError or others.
 // Without check on lesson (grid value = 0 if it is not lesson)
-func (bg *BusyGrid) LessonCanBeMoved(from LessonSlot, to LessonSlot) error {
-	if err := bg.CheckSlot(from); err != nil {
+func (bg *BusyGrid) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
+	if err := bg.CheckSlot(lesson.Slot); err != nil {
 		return err
 	}
+	if !bg.IsBusy(lesson.Slot) {
+		panic("")
+	}
+
 	if err := bg.CheckSlot(to); err != nil {
 		return err
 	}
