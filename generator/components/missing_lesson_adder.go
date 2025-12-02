@@ -65,10 +65,12 @@ func (ma *missingLessonsAdder) AddMissingLessons() {
 
 				if !teacherLoad.Discipline.EnoughHours() {
 					ma.errorService.AddError(&MissingLessonsAdderError{
-						teacher:    teacher,
-						group:      group,
-						discipline: teacherLoad.Discipline,
-						lessonType: teacherLoad.LessonType,
+						UnsignedLesson: entities.UnsignedLesson{
+							Teacher:      teacher,
+							StudentGroup: group,
+							Discipline:   teacherLoad.Discipline,
+							Type:         teacherLoad.LessonType,
+						},
 					})
 				}
 			}
@@ -88,15 +90,12 @@ func (ma *missingLessonsAdder) GetErrorService() ErrorService {
 // MissingLessonsAdderError indicates that the MissingLessonsAdder failed to
 // find free slot in the grids for missing lesson.
 type MissingLessonsAdderError struct {
-	teacher    *entities.Teacher
-	group      *entities.StudentGroup
-	discipline *entities.Discipline
-	lessonType *entities.LessonType
+	entities.UnsignedLesson
 }
 
 func (e *MissingLessonsAdderError) Error() string {
 	return fmt.Sprintf("Not enough space of %s or %s for %s %s.",
-		e.group.Name, e.teacher.UserName, e.lessonType.Name, e.discipline.Name)
+		e.StudentGroup.Name, e.Teacher.UserName, e.Type.Name, e.Discipline.Name)
 }
 
 func (e *MissingLessonsAdderError) GetTypeOfError() GeneratorComponentErrorTypes {

@@ -10,13 +10,19 @@ type LessonSlot struct {
 // 	Structure []*Lesson //index - week
 // }
 
-type Lesson struct {
-	Slot         LessonSlot
-	Value        int // кількість академічних годин
+// UnsignedLesson represents a lesson draft without confirmed assignments.
+type UnsignedLesson struct {
 	Type         *LessonType
 	Teacher      *Teacher
 	StudentGroup *StudentGroup
 	Discipline   *Discipline
+}
+
+// Lesson represents an assigned lesson based on an UnsignedLesson.
+type Lesson struct {
+	UnsignedLesson
+	Slot  LessonSlot
+	Value int // кількість академічних годин
 }
 
 func (l *Lesson) After(other *Lesson) bool {

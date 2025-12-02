@@ -214,7 +214,7 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 	boneLessons := g.lessonService.GetWeekLessons(g.boneWeek)
 	currentWeek := 0
 	outOfGrid := false
-	for !outOfGrid {
+	for !outOfGrid && currentWeek <= len(g.BusyGrid)/7+1 {
 		for _, lesson := range boneLessons {
 			newSlot := entities.LessonSlot{
 				Day:  lesson.Slot.Day%7 + currentWeek*7,

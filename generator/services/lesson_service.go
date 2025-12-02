@@ -51,12 +51,14 @@ func (ls *lessonService) AddLesson(
 	}
 
 	lesson := &entities.Lesson{
-		Teacher:      teacher,
-		StudentGroup: studentGroup,
-		Discipline:   discipline,
-		Slot:         slot,
-		Type:         lType,
-		Value:        ls.lessonValue,
+		UnsignedLesson: entities.UnsignedLesson{
+			Teacher:      teacher,
+			StudentGroup: studentGroup,
+			Discipline:   discipline,
+			Type:         lType,
+		},
+		Slot:  slot,
+		Value: ls.lessonValue,
 	}
 
 	if err := teacher.CheckLesson(lesson); err != nil {

@@ -12,12 +12,34 @@ const (
 	SetDayTypeErrorType GeneratorComponentErrorTypes = iota
 	BoneWeekErrorType
 	MissingLessonsAdderErrorType
+	unexpectedErrorType = -1
 )
 
 // GeneratorComponentError represents a typed generator component error.
 type GeneratorComponentError interface {
 	error                                         // Basic interface for errors
 	GetTypeOfError() GeneratorComponentErrorTypes // Each error generator must have a category
+}
+
+// NewUnexpectedError create new unexpectedError instance.
+// unexpectedError indicates an internal state that should be unreachable.
+func NewUnexpectedError(d, c, m string, err error) GeneratorComponentError {
+	return &unexpectedError{description: d, className: c, methodName: m, err: err}
+}
+
+type unexpectedError struct {
+	description string
+	className   string
+	methodName  string
+	err         error
+}
+
+func (e *unexpectedError) Error() string {
+	return fmt.Sprintf("%s %s ==> %s. \n└-- basic error: %s", e.className, e.methodName, e.description, e.err.Error())
+}
+
+func (e *unexpectedError) GetTypeOfError() GeneratorComponentErrorTypes {
+	return unexpectedErrorType
 }
 
 // ErrorService aggregates and manages errors produced by generator components.

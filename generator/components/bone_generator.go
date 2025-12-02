@@ -62,8 +62,17 @@ func (bg *boneGenerator) GenerateBoneLessons() {
 						slot := entities.LessonSlot{Day: day, Slot: lessonSlot}
 						err := bg.lessonService.AddLesson(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
 						if err != nil {
-							panic("tmp")
-
+							bg.errorService.AddError(NewUnexpectedError("slot is busy but algorithm determined it as free",
+								"boneGenerator", "GenerateBoneLessons", &FalseFreeSlotError{
+									UnsignedLesson: entities.UnsignedLesson{
+										Teacher:      teacher,
+										StudentGroup: studentGroup,
+										Discipline:   teacherLoad.Discipline,
+										Type:         teacherLoad.LessonType,
+									},
+									slot: slot,
+									err:  err,
+								}))
 						}
 						success = true
 					}
@@ -100,4 +109,16 @@ func (e *BoneWeekError) Error() string {
 
 func (e *BoneWeekError) GetTypeOfError() GeneratorComponentErrorTypes {
 	return BoneWeekErrorType
+}
+
+// FalseFreeSlotError indicates that slot is busy but algorithm determined it as free.
+type FalseFreeSlotError struct {
+	entities.UnsignedLesson
+	slot entities.LessonSlot
+	err  error
+}
+
+func (e *FalseFreeSlotError) Error() string {
+	return fmt.Sprintf("false free slot %d/%d of %s or %s grid for %s %s. error: %s", e.slot.Day, e.slot.Slot,
+		e.StudentGroup.Name, e.Teacher.UserName, e.Type.Name, e.Discipline.Name, e.err.Error())
 }
