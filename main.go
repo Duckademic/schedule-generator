@@ -54,9 +54,9 @@ func main() {
 		gen, err = generator.NewScheduleGenerator(generator.ScheduleGeneratorConfig{
 			LessonsValue:       2,
 			Start:              time.Date(2025, time.January, 19, 0, 0, 0, 0, time.UTC),
-			End:                time.Date(2025, time.May, 30, 0, 0, 0, 0, time.UTC),
+			End:                time.Date(2025, time.March, 30, 0, 0, 0, 0, time.UTC),
 			WorkLessons:        wl,
-			MaxStudentWorkload: 4,
+			MaxStudentWorkload: 1,
 			FillPercentage:     0.8,
 		})
 		if err != nil {
@@ -87,7 +87,7 @@ func main() {
 
 		err = gen.GenerateSchedule()
 		if err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 	}()
 	log.Printf("Schedule fault: %f", gen.ScheduleFault())

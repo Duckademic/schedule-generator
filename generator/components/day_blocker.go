@@ -9,11 +9,14 @@ import (
 
 // DayBlocker selects days for student groups
 type DayBlocker interface {
-	SetDayTypes() error // throw an error if at not enough days per group
+	GeneratorComponent // Basic interface for generator component
+	SetDayTypes()      // Add a SetDayTypeError to ErrorService if at not enough days per group
 }
 
-func NewDayBlocker(studentGroups []*entities.StudentGroup) DayBlocker {
-	db := dayBlocker{}
+// NewDayBlocker creates a DayBlocker instance.
+// It requires an ErrorService and a list of student groups.
+func NewDayBlocker(studentGroups []*entities.StudentGroup, errorService ErrorService) DayBlocker {
+	db := dayBlocker{errorService: errorService}
 	db.setGroupExtensions(studentGroups)
 
 	return &db
@@ -27,7 +30,6 @@ type groupExtension struct {
 	freeDayCount  int                    // count of free (comfortable) days
 }
 
-// Time complexity O(1)
 func (ge *groupExtension) IsFreeDay(day int) bool {
 	return ge.dayPriorities[day] > 0.99
 }
@@ -51,9 +53,10 @@ func newGroupExtension(group *entities.StudentGroup) *groupExtension {
 
 type dayBlocker struct {
 	groupExtensions []groupExtension // StudentGroup collection
+	errorService    ErrorService     // Collection for errors
 }
 
-func (db *dayBlocker) SetDayTypes() error {
+func (db *dayBlocker) SetDayTypes() {
 	daysBlocked := make([]int, 7) // contains num of groups that chose this day
 
 	for _, group := range db.groupExtensions {
@@ -61,7 +64,7 @@ func (db *dayBlocker) SetDayTypes() error {
 
 		for _, lt := range group.group.GetOwnLessonTypes() {
 			//select 2 days for every lesson type
-			for tmp_i := 0; tmp_i < 2; tmp_i++ {
+			for tmp_i := 0; tmp_i < 2; tmp_i++ { // break after error assigned
 				// select day that free and blocked the fewest times
 				min := 1000000000
 				mIndex := -1
@@ -74,12 +77,13 @@ func (db *dayBlocker) SetDayTypes() error {
 
 				// day not found
 				if mIndex == -1 {
-					return &SetDayTypeError{
+					db.errorService.AddError(&SetDayTypeError{
 						LessonType:    lt,
 						StudentGroup:  group.group,
 						DayPriorities: group.dayPriorities,
 						AvailableDays: availableDays,
-					}
+					})
+					break // continue with next group
 				}
 
 				// if an error ignores this day, deletes it from available days, continues search
@@ -96,8 +100,15 @@ func (db *dayBlocker) SetDayTypes() error {
 			}
 		}
 	}
+}
 
-	return nil
+func (db *dayBlocker) GetErrorService() ErrorService {
+	return db.errorService
+}
+
+// Redirect to SetDayTypes function
+func (db *dayBlocker) Run() {
+	db.SetDayTypes()
 }
 
 func (db *dayBlocker) setGroupExtensions(studentGroups []*entities.StudentGroup) {
@@ -125,4 +136,8 @@ type SetDayTypeError struct {
 
 func (e *SetDayTypeError) Error() string {
 	return fmt.Sprintf("can't add a day of type %s to group %s", e.LessonType.Name, e.StudentGroup.Name)
+}
+
+func (e *SetDayTypeError) GetTypeOfError() GeneratorComponentErrorTypes {
+	return SetDayTypeErrorType
 }

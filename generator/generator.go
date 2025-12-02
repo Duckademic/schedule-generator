@@ -27,6 +27,7 @@ type ScheduleGenerator struct {
 	lessonService       services.LessonService
 	disciplineService   services.DisciplineService
 	lessonTypeService   services.LessonTypeService
+	errorService        components.ErrorService
 	boneWeek            int
 	studyLoadSet        bool
 }
@@ -55,6 +56,8 @@ func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, erro
 		return nil, err
 	}
 	scheduleGenerator.lessonService = ls
+
+	scheduleGenerator.errorService = components.NewErrorService()
 
 	return &scheduleGenerator, nil
 }
@@ -150,7 +153,6 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 }
 
 // 0 - teacher, 1 - student group, 2 - discipline, 3 - lesson type service.
-// Time complexity O(1)
 func (g *ScheduleGenerator) CheckServices(services []bool) error {
 	checks := append(services, make([]bool, 4-len(services))...)
 
@@ -179,80 +181,32 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 		return fmt.Errorf("study loads not set")
 	}
 
-	err := components.NewDayBlocker(g.studentGroupService.GetAll()).SetDayTypes()
-	if err != nil {
-		return err
-	}
+	components.NewDayBlocker(g.studentGroupService.GetAll(), g.errorService).SetDayTypes()
 
-	err = g.generateBoneLessons()
-	if err != nil {
-		return err
-	}
+	components.NewBoneGenerator(g.errorService, g.teacherService.GetAll(), g.lessonService, g.boneWeek).GenerateBoneLessons()
 
 	g.buildLessonCarcass()
 
-	err = g.addMissingLessons()
-	if err != nil {
-		return err
+	components.NewMissingLessonAdder(g.errorService, g.teacherService.GetAll(), g.lessonService).AddMissingLessons()
+
+	// improver := components.NewImprover(g.lessonService)
+	// improver.SubmitChanges() // CRUNCH - sets start slots for first lesson
+	// result := true
+	// currentFault := g.ScheduleFault()
+	// for result {
+	// 	if currentFault <= 0.000001 {
+	// 		break
+	// 	}
+	// 	fault := g.ScheduleFault()
+	// 	if fault < currentFault {
+	// 		improver.SubmitChanges()
+	// 	}
+	// 	result = improver.ImproveToNext()
+	// }
+
+	if !g.errorService.IsClear() {
+		return g.errorService
 	}
-
-	improver := components.NewImprover(g.lessonService)
-	// CRUNCH - sets start slots for first lesson
-	improver.SubmitChanges()
-	result := true
-	currentFault := g.ScheduleFault()
-	for result {
-		if currentFault <= 0.000001 {
-			break
-		}
-		fault := g.ScheduleFault()
-		if fault < currentFault {
-			improver.SubmitChanges()
-		}
-		result = improver.ImproveToNext()
-	}
-
-	return nil
-}
-
-func (g *ScheduleGenerator) generateBoneLessons() error {
-	teachers := g.teacherService.GetAll()
-
-	for i := range teachers {
-		teacher := teachers[i]
-
-		for _, teacherLoad := range teacher.Load {
-			for _, studentGroup := range teacherLoad.Groups {
-				offset := 0
-				success := false
-
-				for !success {
-					// отримуємо доступний лекційний день
-					day := studentGroup.GetNextDayOfType(teacherLoad.LessonType, g.boneWeek*7+offset)
-					if day > g.boneWeek*7+7 || day < 0 {
-						break
-						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
-						// return fmt.Errorf("group haven't enough slots for lectures")
-					}
-
-					// отримання вільного слота для групи та викладача
-					lessonSlot := teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
-
-					if lessonSlot != -1 {
-						slot := entities.LessonSlot{Day: day, Slot: lessonSlot}
-						err := g.lessonService.AddLesson(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
-						if err != nil {
-							return fmt.Errorf("bone algorithm error: %s", err.Error())
-						}
-						success = true
-					}
-					offset = day - g.boneWeek*7 + 1
-				}
-
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -282,50 +236,6 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 	}
 }
 
-func (g *ScheduleGenerator) addMissingLessons() error {
-	teachers := g.teacherService.GetAll()
-
-	for i := range teachers {
-		teacher := teachers[i]
-
-		for _, teacherLoad := range teacher.Load {
-			for _, group := range teacherLoad.Groups {
-				currentDay := 0
-				outOfGrid := false
-				for !teacherLoad.Discipline.EnoughHours() && !outOfGrid {
-					err := group.CheckDay(currentDay)
-					if err != nil {
-						outOfGrid = true
-						//continue
-						break
-					}
-
-					for i := range g.BusyGrid[currentDay] {
-						slot := entities.LessonSlot{
-							Day:  currentDay,
-							Slot: i,
-						}
-						g.lessonService.AddLesson(
-							teacher,
-							group,
-							teacherLoad.Discipline,
-							slot,
-							teacherLoad.LessonType,
-						)
-					}
-					currentDay += group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
-				}
-
-				// if !disciplineLoad.Discipline.EnoughHours() {
-				// 	return fmt.Errorf("not enough space for %s discipline", disciplineLoad.Discipline.Name)
-				// }
-			}
-		}
-	}
-
-	return nil
-}
-
 // Rates schedule fault.
 // Returns -1 if an error accurse.
 func (g *ScheduleGenerator) ScheduleFault() float64 {
@@ -334,7 +244,7 @@ func (g *ScheduleGenerator) ScheduleFault() float64 {
 		return -1
 	}
 
-	result := entities.ScheduleResult{}
+	result := components.ScheduleFault{}
 
 	result.TeacherWindows = g.teacherService.CountWindows()
 	result.StudentGroupWindows = g.studentGroupService.CountWindows()
