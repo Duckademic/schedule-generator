@@ -236,23 +236,33 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 	}
 }
 
-// Rates schedule fault.
-// Returns -1 if an error accurse.
-func (g *ScheduleGenerator) ScheduleFault() float64 {
+// Rates schedule fault. Returns ScheduleFault as a result.
+// Returns an empty ScheduleFault if an not enough data.
+func (g *ScheduleGenerator) ScheduleFault() (result components.ScheduleFault) {
+	result = components.NewScheduleFault()
+
 	err := g.CheckServices([]bool{true, true})
 	if err != nil {
-		return -1
+		return
 	}
 
-	result := components.ScheduleFault{}
+	result.AddParameter("teacher_windows", components.NewSimpleScheduleParameter(
+		float64(g.teacherService.CountWindows()), 0.1,
+	))
+	result.AddParameter("student_group_windows", components.NewSimpleScheduleParameter(
+		float64(g.studentGroupService.CountWindows()), 1000,
+	))
+	result.AddParameter("hours_deficit", components.NewSimpleScheduleParameter(
+		float64(g.disciplineService.CountHourDeficit()), 10,
+	))
+	result.AddParameter("teacher_lesson_overlapping", components.NewSimpleScheduleParameter(
+		float64(g.teacherService.CountLessonOverlapping()), 10,
+	))
+	result.AddParameter("student_group_lesson_overlapping", components.NewSimpleScheduleParameter(
+		float64(g.studentGroupService.CountLessonOverlapping()), 10,
+	))
 
-	result.TeacherWindows = g.teacherService.CountWindows()
-	result.StudentGroupWindows = g.studentGroupService.CountWindows()
-	result.HoursDeficit = g.disciplineService.CountHourDeficit()
-	result.TeacherLessonOverlapping = g.studentGroupService.CountLessonOverlapping()
-	result.StudentGroupLessonOverlapping = g.teacherService.CountLessonOverlapping()
-
-	return result.Fault()
+	return
 }
 
 func (g *ScheduleGenerator) WriteSchedule() {
