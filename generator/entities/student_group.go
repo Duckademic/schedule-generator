@@ -23,9 +23,11 @@ type StudentGroup struct {
 }
 
 // ==========================================================================================================
-// ========================================== BusyGrid OVERRIDES ============================================
+// =========================================== BusyGrid OVERRIDES ===========================================
 // ==========================================================================================================
 
+// Returns false if the group can have a lesson at this slot. Otherwise returns false.
+// Use CheckLesson() method to check if the lesson can be scheduled for the group.
 func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
 	if err := sg.BusyGrid.CheckSlot(slot); err != nil {
 		return true
@@ -46,7 +48,7 @@ func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
 		}
 	}
 
-	return sg.CountLessonsOn(slot.Day) >= sg.MaxLessonsPerDay || slotIsBusy
+	return sg.CheckLessonDayLimitReached(slot.Day) || slotIsBusy
 }
 
 func (sg *StudentGroup) CountSlotsAtDay(day int) (count int) {
@@ -128,7 +130,7 @@ func (sg *StudentGroup) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
 }
 
 // ==========================================================================================================
-// ========================================== LessonType BINDING ============================================
+// =========================================== LessonType BINDING ===========================================
 // ==========================================================================================================
 
 // returns -1 if student group hasn't free day
@@ -139,7 +141,7 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 
 	for i := startDay; i < len(sg.Grid); i++ {
 		if sg.IsDayOfType(lType, i) {
-			if sg.CountLessonsOn(i) < sg.MaxLessonsPerDay {
+			if !sg.CheckLessonDayLimitReached(i) {
 				return i
 			}
 		}
@@ -222,6 +224,18 @@ func (sg *StudentGroup) AddWeekToLessonType(lType *LessonType, week int) error {
 	return nil
 }
 
+// ==========================================================================================================
+// ================================================= OTHERS =================================================
+// ==========================================================================================================
+
+func (sg *StudentGroup) CheckLessonDayLimitReached(day int) bool {
+	if err := sg.CheckDay(day); err != nil {
+		return true
+	}
+
+	return sg.CountLessonsOn(day) >= sg.MaxLessonsPerDay
+}
+
 func (sg *StudentGroup) AddLesson(lesson *Lesson, ignoreCheck bool) error {
 	err := sg.CheckLesson(lesson)
 	if err != nil && !ignoreCheck {
@@ -273,4 +287,16 @@ func (sg *StudentGroup) GetOwnLessonTypes() []*LessonType {
 		keys = append(keys, lt)
 	}
 	return keys
+}
+
+// Returns the total number of overtime lessons (above the daily limit) for the student group.
+func (sg *StudentGroup) GetOvertimeLessons() (result int) {
+	for day := 0; true; day++ {
+		count := sg.CountLessonsOn(day)
+		if count == -1 {
+			break
+		}
+		result += max(0, count-sg.MaxLessonsPerDay)
+	}
+	return
 }

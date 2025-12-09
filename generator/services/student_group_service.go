@@ -9,9 +9,10 @@ import (
 type StudentGroupService interface {
 	GetAll() []*entities.StudentGroup
 	Find(uuid.UUID) *entities.StudentGroup
-	CountWindows() int
+	CountWindows() int // Returns sum of all student groups windows
 	CountHourDeficit() int
-	CountLessonOverlapping() int
+	CountLessonOverlapping() int // Returns sum of all lesson overlap.
+	CountOvertimeLessons() int   // Return sum of all overtime lesson (above the daily limit)
 }
 
 type studentGroupService struct {
@@ -60,8 +61,6 @@ func (sgs *studentGroupService) Find(id uuid.UUID) *entities.StudentGroup {
 	return nil
 }
 
-// Returns sum of all student groups windows
-// Time complexity O(n)
 func (sgs *studentGroupService) CountWindows() (count int) {
 	for _, g := range sgs.studentGroups {
 		count += g.CountWindows()
@@ -77,12 +76,17 @@ func (sgs *studentGroupService) CountHourDeficit() (count int) {
 	return count
 }
 
-// Returns sum of all lesson overlap.
-// Time complexity O(n^2)
 func (sgs *studentGroupService) CountLessonOverlapping() (count int) {
 	for _, studentGroup := range sgs.studentGroups {
 		count += studentGroup.CountLessonOverlapping()
 	}
 
+	return
+}
+
+func (sgs *studentGroupService) CountOvertimeLessons() (count int) {
+	for _, sg := range sgs.studentGroups {
+		count += sg.GetOvertimeLessons()
+	}
 	return
 }

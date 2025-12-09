@@ -53,6 +53,7 @@ func (bg *boneGenerator) GenerateBoneLessons() {
 								discipline: teacherLoad.Discipline,
 							},
 						)
+						break
 					}
 
 					// отримання вільного слота для групи та викладача

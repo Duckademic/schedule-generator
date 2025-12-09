@@ -178,6 +178,17 @@ func (bg *BusyGrid) IsBusy(slot LessonSlot) bool {
 	return bg.Grid[slot.Day][slot.Slot] <= 0
 }
 
+// Checks if lesson is at this slot (when grid value is < 0).
+// If error accurse return false.
+func (bg *BusyGrid) IsLessonOn(slot LessonSlot) bool {
+	err := bg.CheckSlot(slot)
+	if err != nil {
+		return false
+	}
+
+	return bg.Grid[slot.Day][slot.Slot] < 0
+}
+
 // Returns DayOutError, SlotOutError or others.
 // Without check on lesson (grid value = 0 if it is not lesson)
 func (bg *BusyGrid) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
@@ -221,9 +232,14 @@ func (bg *BusyGrid) CountWindows() (count int) {
 	return
 }
 
+// Returns sum of lessons at the day. If day is incorrect returns -1.
 func (bg *BusyGrid) CountLessonsOn(day int) (count int) {
+	if err := bg.CheckDay(day); err != nil {
+		return -1
+	}
+
 	for i := range bg.Grid[day] {
-		if bg.IsBusy(LessonSlot{Day: day, Slot: i}) {
+		if bg.IsLessonOn(LessonSlot{Day: day, Slot: i}) {
 			count++
 		}
 	}
