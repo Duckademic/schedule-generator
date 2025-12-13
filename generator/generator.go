@@ -264,6 +264,9 @@ func (g *ScheduleGenerator) ScheduleFault() (result components.ScheduleFault) {
 	result.AddParameter("student_group_overtime_lessons", components.NewSimpleScheduleParameter(
 		float64(g.studentGroupService.CountOvertimeLessons()), 10,
 	))
+	result.AddParameter("student_group_invalid_lessons_by_type", components.NewSimpleScheduleParameter(
+		float64(g.studentGroupService.CountInvalidLessonsTypes()), 10,
+	))
 
 	return
 }

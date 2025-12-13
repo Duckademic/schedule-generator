@@ -11,8 +11,9 @@ type StudentGroupService interface {
 	Find(uuid.UUID) *entities.StudentGroup
 	CountWindows() int // Returns sum of all student groups windows
 	CountHourDeficit() int
-	CountLessonOverlapping() int // Returns sum of all lesson overlap.
-	CountOvertimeLessons() int   // Return sum of all overtime lesson (above the daily limit)
+	CountLessonOverlapping() int   // Returns sum of all lesson overlap.
+	CountOvertimeLessons() int     // Return sum of all overtime lesson (above the daily limit).
+	CountInvalidLessonsTypes() int // Returns sum of all lesson scheduled on days that are not allowed for their types.
 }
 
 type studentGroupService struct {
@@ -87,6 +88,13 @@ func (sgs *studentGroupService) CountLessonOverlapping() (count int) {
 func (sgs *studentGroupService) CountOvertimeLessons() (count int) {
 	for _, sg := range sgs.studentGroups {
 		count += sg.GetOvertimeLessons()
+	}
+	return
+}
+
+func (sgs *studentGroupService) CountInvalidLessonsTypes() (count int) {
+	for _, sg := range sgs.studentGroups {
+		count += sg.GetInvalidLessonsType()
 	}
 	return
 }

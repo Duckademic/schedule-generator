@@ -150,6 +150,7 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	return -1
 }
 
+// Returns true if lesson of type lType  be scheduled on the day given; otherwise returns false.
 func (sg *StudentGroup) IsDayOfType(lType *LessonType, day int) bool {
 	for lessonType, load := range sg.LessonTypeBinding {
 		if lessonType != lType && slices.Contains(load.Weeks, day/7) {
@@ -297,6 +298,18 @@ func (sg *StudentGroup) GetOvertimeLessons() (result int) {
 			break
 		}
 		result += max(0, count-sg.MaxLessonsPerDay)
+	}
+	return
+}
+
+// Returns the total number of lesson scheduled on days that are not allowed for their type.
+func (sg *StudentGroup) GetInvalidLessonsType() (result int) {
+	for _, value := range sg.LessonTypeBinding {
+		for _, lesson := range value.Lessons {
+			if !sg.IsDayOfType(lesson.Type, lesson.Slot.Day) {
+				result += 1
+			}
+		}
 	}
 	return
 }
