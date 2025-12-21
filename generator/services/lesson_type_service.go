@@ -6,12 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// LessonTypeService aggregates and manages lesson types that the generator works with.
 type LessonTypeService interface {
-	Find(uuid.UUID) *entities.LessonType
-	GetAll() []*entities.LessonType
-	GetWeekOffset() int
+	Find(uuid.UUID) *entities.LessonType // Returns a pointer to the lesson type with the given ID
+	GetAll() []*entities.LessonType      // Returns an array with all lesson types as pointers
 }
 
+// NewLessonTypeService creates new LessonTypeService instance.
+//
+// It requires an array of database lesson types (lTypes).
 func NewLessonTypeService(lTypes []types.LessonType) (LessonTypeService, error) {
 	lts := lessonTypeService{
 		lessonTypes: make([]*entities.LessonType, len(lTypes)),
@@ -44,12 +47,4 @@ func (lts *lessonTypeService) Find(id uuid.UUID) *entities.LessonType {
 
 func (lts *lessonTypeService) GetAll() []*entities.LessonType {
 	return lts.lessonTypes
-}
-
-func (lts *lessonTypeService) GetWeekOffset() (maxW int) {
-	for _, lType := range lts.lessonTypes {
-		maxW = max(maxW, lType.Weeks)
-	}
-
-	return
 }

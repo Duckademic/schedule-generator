@@ -63,7 +63,9 @@ func (sf *scheduleFault) GetParameters() string {
 
 	var b strings.Builder
 	for key, value := range sf.parameters {
-		b.WriteString(fmt.Sprintf("%s: %s, fault: %f \n", key, value.GetArguments(), value.Fault()))
+		if value.Fault() != 0 {
+			b.WriteString(fmt.Sprintf("%s: %s, fault: %f \n", key, value.GetArguments(), value.Fault()))
+		}
 	}
 
 	return b.String()

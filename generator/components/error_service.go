@@ -23,6 +23,9 @@ type GeneratorComponentError interface {
 
 // NewUnexpectedError create new unexpectedError instance.
 // unexpectedError indicates an internal state that should be unreachable.
+//
+// It requires error description (d), method where error accrued (m), class name that contains this method (c),
+// error that best describes internal state.
 func NewUnexpectedError(d, c, m string, err error) GeneratorComponentError {
 	return &unexpectedError{description: d, className: c, methodName: m, err: err}
 }

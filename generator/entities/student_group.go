@@ -135,11 +135,11 @@ func (sg *StudentGroup) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
 
 // returns -1 if student group hasn't free day
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
-	if len(sg.LessonTypeBinding[lType].Days) == 0 {
-		return -1
-	}
+	// if len(sg.LessonTypeBinding[lType].Days) == 0 {
+	// 	return -1
+	// }
 
-	for i := startDay; i < len(sg.Grid); i++ {
+	for i := startDay; sg.CheckDay(i) == nil; i++ {
 		if sg.IsDayOfType(lType, i) {
 			if !sg.CheckLessonDayLimitReached(i) {
 				return i
@@ -150,8 +150,9 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	return -1
 }
 
-// Returns true if lesson of type lType  be scheduled on the day given; otherwise returns false.
+// Returns true if a lesson of type lType can be scheduled on the day given; otherwise, returns false.
 func (sg *StudentGroup) IsDayOfType(lType *LessonType, day int) bool {
+	// checks if the week of the day is bound for another lesson type
 	for lessonType, load := range sg.LessonTypeBinding {
 		if lessonType != lType && slices.Contains(load.Weeks, day/7) {
 			return false
@@ -205,9 +206,10 @@ func (sg *StudentGroup) AddDayToLessonType(lType *LessonType, day int) error {
 	return nil
 }
 
+// Binds for a week for a certain lesson type. If the week is already bound or out of the grid, it returns an errors.
 func (sg *StudentGroup) AddWeekToLessonType(lType *LessonType, week int) error {
-	if len(sg.Grid)/7 < week || week < 0 {
-		return fmt.Errorf("week %d out of range (%d to %d)", week, 0, len(sg.Grid)/7)
+	if err := sg.CheckDay(week * 7); err != nil {
+		return fmt.Errorf("week %d out of range: %s", week, err.Error())
 	}
 
 	load, ok := sg.LessonTypeBinding[lType]

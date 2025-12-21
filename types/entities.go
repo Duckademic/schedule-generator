@@ -28,9 +28,10 @@ type DisciplineLoad struct {
 // ==============================================================
 
 type StudentGroup struct {
-	ID          uuid.UUID `json:"id" binding:"required"`
-	Name        string    `json:"name" binding:"required,min=4"`
-	MilitaryDay int       `json:"military_day" binding:"gte=1,lte=7"`
+	ID              uuid.UUID  `json:"id" binding:"required"`
+	Name            string     `json:"name" binding:"required,min=4"`
+	MilitaryDay     int        `json:"military_day" binding:"gte=1,lte=7"`
+	ConnectedGroups uuid.UUIDs `json:"-"` // Groups that share students with this group.
 	// Number string // номер групи (32)
 }
 
@@ -60,6 +61,6 @@ type Lesson struct {
 type LessonType struct {
 	ID    uuid.UUID `json:"id" binding:"required"`
 	Name  string    `json:"name" binding:"required,min=4"`
-	Weeks int       `json:"weeks"` // кількість тижнів на початку навчання заповнених тільки цими типами занять
+	Weeks []int     `json:"weeks"` // кількість тижнів на початку навчання заповнених тільки цими типами занять
 	Value int       `json:"value"` // count of hours for one lesson of type LessonType
 }

@@ -120,6 +120,8 @@ func (bg *BusyGrid) CheckWeekDay(day int) error {
 }
 
 // DayOutError is returned when a day value is out of range.
+//
+// Error: day %input% outside of BusyGrid (%min% to %max%)
 type DayOutError struct {
 	min   int
 	max   int
@@ -141,6 +143,8 @@ func (bg *BusyGrid) CheckDay(day int) error {
 }
 
 // SlotOutError is returned when a slot in specific day is out of range.
+//
+// Error: slot %input% at %day% day outside of BusyGrid (%min% to %max%)
 type SlotOutError struct {
 	min   int
 	max   int

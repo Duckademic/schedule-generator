@@ -35,7 +35,7 @@ func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay
 		studentGroup := sgs.studentGroups[i]
 		studentGroup.BusyGrid = *entities.NewBusyGrid(busyGrid)
 
-		md := studentGroups[i].MilitaryDay - 1
+		md := studentGroups[i].MilitaryDay
 		if md != -1 {
 			if err := studentGroup.CheckWeekDay(md); err != nil {
 				return nil, err

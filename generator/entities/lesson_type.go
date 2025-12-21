@@ -7,6 +7,6 @@ import (
 type LessonType struct {
 	ID    uuid.UUID
 	Name  string
-	Weeks int
+	Weeks []int
 	Value int
 }

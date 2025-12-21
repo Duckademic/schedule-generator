@@ -99,7 +99,7 @@ func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
 	}
 
 	g.lessonTypeService = lts
-	g.boneWeek = g.lessonTypeService.GetWeekOffset()
+	g.boneWeek = 4 // stub
 	return nil
 }
 
