@@ -26,7 +26,6 @@ func NewDayBlocker(studentGroups []*entities.StudentGroup, errorService ErrorSer
 type groupExtension struct {
 	group         *entities.StudentGroup // Original StudentGroup
 	dayPriorities []float32              // Bigger number - better day for lessons (<0.99 if day is uncomfortable) (length - 7)
-	countOfSlots  []int                  // count of slots at every day (length - 7)
 	freeDayCount  int                    // count of free (comfortable) days
 }
 
@@ -38,14 +37,12 @@ func newGroupExtension(group *entities.StudentGroup) *groupExtension {
 	ge := groupExtension{
 		group:         group,
 		dayPriorities: group.GetWeekDaysPriority(),
-		countOfSlots:  make([]int, 7),
 	}
 
 	for day := range ge.dayPriorities {
 		if ge.IsFreeDay(day) {
 			ge.freeDayCount++
 		}
-		ge.countOfSlots[day] = ge.group.CountSlotsAtDay(day)
 	}
 
 	return &ge
@@ -86,8 +83,8 @@ func (db *dayBlocker) SetDayTypes() {
 					break // continue with next group
 				}
 
-				// if an error ignores this day, deletes it from available days, continues search
-				err := group.group.AddDayToLessonType(lt, mIndex)
+				// if an error occurs, ignore this day, delete it from available days, continue the search
+				err := group.group.BindWeekday(lt, mIndex)
 				if err != nil {
 					dayIndex := slices.Index(availableDays, mIndex)
 					availableDays = append(availableDays[:dayIndex], availableDays[dayIndex+1:]...)
@@ -116,11 +113,16 @@ func (db *dayBlocker) setGroupExtensions(studentGroups []*entities.StudentGroup)
 	for i := range studentGroups {
 		db.groupExtensions[i] = *newGroupExtension(studentGroups[i])
 	}
-	// sorts by free day count in increasing order
+	// sorts by connected groups count in decreasing order, and then by free day count in increasing order
 	slices.SortFunc(db.groupExtensions, func(a, b groupExtension) int {
-		if a.freeDayCount == b.freeDayCount {
-			return 0
-		} else if a.freeDayCount > b.freeDayCount {
+		if a.group.CountConnectedGroupsNumber() == b.group.CountConnectedGroupsNumber() {
+			if a.freeDayCount == b.freeDayCount {
+				return 0
+			} else if a.freeDayCount > b.freeDayCount {
+				return 1
+			}
+			return -1
+		} else if a.group.CountConnectedGroupsNumber() < b.group.CountConnectedGroupsNumber() {
 			return 1
 		}
 		return -1

@@ -2,43 +2,18 @@ package entities
 
 import "github.com/google/uuid"
 
-type DisciplineLoad struct {
-	Teacher    *Teacher
-	Groups     []*StudentGroup
-	LessonType *LessonType
-	LessonChecker
-}
-
+// Discipline represents a university subject in the scheduling context.
 type Discipline struct {
-	ID   uuid.UUID
-	Name string
-	Load []DisciplineLoad
+	ID   uuid.UUID // Unique identifier of the Discipline.
+	Name string    // Human-readable identifier of the Discipline.
 }
 
-func (d *Discipline) AddLoad(teacher *Teacher, hours int, groups []*StudentGroup, lType *LessonType) error {
-	dl := DisciplineLoad{
-		LessonChecker: LessonChecker{
-			RequiredHours: hours * len(groups),
-		},
-		Teacher:    teacher,
-		Groups:     groups,
-		LessonType: lType,
+// NewDiscipline creates a new Discipline instance.
+//
+// It requires discipline's id and name.
+func NewDiscipline(id uuid.UUID, name string) *Discipline {
+	return &Discipline{
+		ID:   id,
+		Name: name,
 	}
-
-	d.Load = append(d.Load, dl)
-	return nil
-}
-
-// ПЕРЕПИСАТИ
-func (d *Discipline) EnoughHours() bool {
-	return d.Load[0].RequiredHours <= d.Load[0].CurrentHours
-}
-
-// Returns sum of pending hours of all disciplines.
-func (d *Discipline) CountHourDeficit() (count int) {
-	for _, load := range d.Load {
-		count += load.CountHourDeficit()
-	}
-
-	return
 }

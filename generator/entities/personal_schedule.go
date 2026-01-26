@@ -40,8 +40,8 @@ func (ps *PersonalSchedule) WritePS(lessonToString func(*Lesson) string) error {
 
 		for slot := range ps.BusyGrid.Grid[day] {
 			var lStr string
-			currentSlot := LessonSlot{Day: day, Slot: slot}
-			if len(ps.Lessons) != lessonIndex && ps.Lessons[lessonIndex].Slot == currentSlot {
+			currentSlot := NewLessonSlot(day, slot)
+			if len(ps.Lessons) != lessonIndex && ps.Lessons[lessonIndex].LessonSlot == currentSlot {
 				lStr = lessonToString(ps.Lessons[lessonIndex])
 				lessonIndex++
 			}

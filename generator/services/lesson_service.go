@@ -2,27 +2,36 @@ package services
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/Duckademic/schedule-generator/generator/entities"
 )
 
+// LessonService aggregates and manages lessons that the generator works with.
 type LessonService interface {
-	GetAll() []*entities.Lesson
-	AddLesson(*entities.Teacher, *entities.StudentGroup, *entities.Discipline, entities.LessonSlot, *entities.LessonType) error
-	GetWeekLessons(int) []*entities.Lesson
-	MoveLesson(*entities.Lesson, entities.LessonSlot) error
+	GetAll() []*entities.Lesson // Returns a slice with all lessons as pointers.
+	// Assigns a lesson to the selected slot.
+	AssignLesson(entities.UnassignedLesson, entities.LessonSlot) error
+	MoveLessonTo(*entities.Lesson, entities.LessonSlot) error // MoveLessonTo moves lesson to another slot (to).
+	GetWeekLessons(int) []*entities.Lesson                    // TODO: collect bone lessons in another structure.
 }
 
-func NewLessonService(lessonValue int) (LessonService, error) {
-	if lessonValue <= 0 {
-		return nil, fmt.Errorf("lessonValue under/equal 0 (%d)", lessonValue)
+// NewLessonService creates a new LessonService basic instance.
+//
+// It requires a number of academic hours for lessons (lesson value - lv).
+//
+// Returns an error if the lesson value is below or equal to zero.
+func NewLessonService(lv int) (LessonService, error) {
+	if lv <= 0 {
+		return nil, fmt.Errorf("lessonValue below/equal to 0 (%d)", lv)
 	}
 
-	ls := lessonService{lessonValue: lessonValue}
+	ls := lessonService{lessonValue: lv}
 
 	return &ls, nil
 }
 
+// lessonService is the basic implementation of the LessonService interface.
 type lessonService struct {
 	lessons     []*entities.Lesson
 	lessonValue int
@@ -31,83 +40,59 @@ type lessonService struct {
 func (ls *lessonService) GetAll() []*entities.Lesson {
 	return ls.lessons
 }
-
-func (ls *lessonService) AddLesson(
-	teacher *entities.Teacher,
-	studentGroup *entities.StudentGroup,
-	discipline *entities.Discipline,
-	slot entities.LessonSlot,
-	lType *entities.LessonType,
-) error {
-	// загальні перевірки
-	if teacher == nil {
-		return fmt.Errorf("teacher can't be nil")
-	}
-	if studentGroup == nil {
-		return fmt.Errorf("student group can't be nil")
-	}
-	if discipline == nil {
-		return fmt.Errorf("discipline can't be nil")
-	}
-
-	lesson := &entities.Lesson{
-		UnsignedLesson: entities.UnsignedLesson{
-			Teacher:      teacher,
-			StudentGroup: studentGroup,
-			Discipline:   discipline,
-			Type:         lType,
-		},
-		Slot:  slot,
-		Value: ls.lessonValue,
-	}
-
-	if err := teacher.CheckLesson(lesson); err != nil {
-		return err
-	}
-	if err := studentGroup.CheckLesson(lesson); err != nil {
+func (ls *lessonService) AssignLesson(ul entities.UnassignedLesson, slot entities.LessonSlot) error {
+	if err := ul.Validate(); err != nil {
 		return err
 	}
 
-	// перевірки дисципліни
-	if discipline.EnoughHours() {
-		return fmt.Errorf("discipline have enough hours")
+	lesson := entities.NewLesson(ul, slot, ls.lessonValue)
+
+	if err := ul.Teacher.CheckLesson(lesson); err != nil {
+		return err
+	}
+	if err := ul.StudentGroup.CheckLesson(lesson); err != nil {
+		return err
 	}
 
-	// додавання пари
 	ls.lessons = append(ls.lessons, lesson)
 
-	lesson.StudentGroup.AddLesson(lesson, true)
-	lesson.Teacher.AddLesson(lesson, true)
+	if err := lesson.StudentGroup.AddLesson(lesson); err != nil {
+		panic("pass the check before, but error accurse")
+	}
+	if err := lesson.Teacher.AddLesson(lesson); err != nil {
+		panic("pass the check before, but error accurse")
+	}
 
-	lesson.Discipline.Load[0].CurrentHours += ls.lessonValue
 	return nil
 }
-
 func (ls *lessonService) GetWeekLessons(week int) (res []*entities.Lesson) {
 	for _, l := range ls.lessons {
-		if l.Slot.Day/7 == week {
+		if l.Day/7 == week {
 			res = append(res, l)
 		}
 	}
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].Day != res[j].Day {
+			return res[i].Day < res[j].Day
+		}
+		return res[i].Slot < res[j].Slot
+	})
 	return
 }
-
-// MoveLesson moves lesson to "to" slot.
-// Return an error if something went wrong.
-func (ls *lessonService) MoveLesson(lesson *entities.Lesson, to entities.LessonSlot) error {
-	if err := lesson.Teacher.LessonCanBeMoved(lesson, to); err != nil {
+func (ls *lessonService) MoveLessonTo(lesson *entities.Lesson, to entities.LessonSlot) error {
+	if err := lesson.Teacher.LessonCanBeMoved(lesson.LessonSlot, to); err != nil {
 		return err
 	}
 	if err := lesson.StudentGroup.LessonCanBeMoved(lesson, to); err != nil {
 		return err
 	}
 
-	if err := lesson.Teacher.MoveLessonTo(lesson, to); err != nil {
+	if err := lesson.Teacher.MoveLessonTo(lesson.LessonSlot, to); err != nil {
 		panic("pass the check before, but error accurse")
 	}
 	if err := lesson.StudentGroup.MoveLessonTo(lesson, to); err != nil {
 		panic("pass the check before, but error accurse")
 	}
-	lesson.Slot = to
+	lesson.MoveLessonTo(to)
 	return nil
 }

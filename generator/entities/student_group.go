@@ -7,71 +7,90 @@ import (
 	"github.com/google/uuid"
 )
 
-type StudentGroupLoad struct {
-	Days  []int
-	Weeks []int
-	LessonChecker
+// StudentGroup represents a university student group in a scheduling context.
+//
+// The model enforces curriculum load constraints, disallows simultaneous classes and day overloads.
+type StudentGroup struct {
+	BusyGrid                     // Availability grid.
+	StudentLoadService           // Handles student group load validation logic.
+	LessonTypeBinder             // Handles lesson type binding logic.
+	ID                 uuid.UUID // Unique identifier of the StudentGroup.
+	Name               string    // Human-readable identifier of the StudentGroup.
+	MaxLessonsPerDay   int       // Day load limit.
+	connectedGroups    []*StudentGroup
 }
 
-type StudentGroup struct {
-	BusyGrid
-	ID                uuid.UUID
-	Name              string
-	MaxLessonsPerDay  int
-	LessonTypeBinding map[*LessonType]*StudentGroupLoad
-	Teachers          []*Teacher
+// NewStudentGroup creates a new StudentGroup instance.
+//
+// It requires student group id, name, max lessons per day (dl),
+// busy grid (bg), student load service (sls), and lesson type binder (ltb).
+func NewStudentGroup(
+	id uuid.UUID, name string, dl int,
+	bg *BusyGrid, sls StudentLoadService, ltb LessonTypeBinder,
+) *StudentGroup {
+	return &StudentGroup{ID: id,
+		Name:               name,
+		MaxLessonsPerDay:   dl,
+		BusyGrid:           *bg,
+		StudentLoadService: sls,
+		LessonTypeBinder:   ltb,
+	}
+}
+
+// NewDefaultStudentGroup creates a new StudentGroup instance with default configuration.
+//
+// It requires student group id, name, max lessons per day (dl), and busy grid (bg).
+func NewDefaultStudentGroup(id uuid.UUID, name string, dl int, bg *BusyGrid) *StudentGroup {
+	return NewStudentGroup(id, name, dl, bg, NewStudentLoadService(), NewLessonTypeBinder())
+}
+
+// ==========================================================================================================
+// ============================================= ConnectedGroups ============================================
+// ==========================================================================================================
+
+// AddConnectedGroup creates a connection between student groups by adding each group to the other's special field.
+// Does not create a duplicate connection if the groups are already connected.
+func (sg *StudentGroup) AddConnectedGroup(other *StudentGroup) {
+	if slices.Contains(sg.connectedGroups, other) {
+		return
+	}
+
+	other.connectedGroups = append(other.connectedGroups, sg)
+	sg.connectedGroups = append(sg.connectedGroups, other)
+}
+
+func (sg *StudentGroup) CountConnectedGroupsNumber() int {
+	return len(sg.connectedGroups)
 }
 
 // ==========================================================================================================
 // =========================================== BusyGrid OVERRIDES ===========================================
 // ==========================================================================================================
 
-// Returns false if the group can have a lesson at this slot. Otherwise returns false.
-// Use CheckLesson() method to check if the lesson can be scheduled for the group.
-func (sg *StudentGroup) IsBusy(slot LessonSlot) bool {
-	if err := sg.BusyGrid.CheckSlot(slot); err != nil {
-		return true
-	}
+// func (sg *StudentGroup) CountSlotsAtDay(day int) (count int) {
+// 	if day < 0 || day > 6 {
+// 		return
+// 	}
+//
+// 	for week := 0; sg.CheckDay(day+week*7) == nil; week++ {
+// 		currentDay := day + week*7
+// 		delta := 0
+// 		for slot := range sg.Grid[currentDay] {
+// 			if !sg.IsBusy(LessonSlot{Day: currentDay, Slot: slot}) {
+// 				delta++
+// 			}
+// 		}
+// 		if delta > sg.MaxLessonsPerDay {
+// 			delta = sg.MaxLessonsPerDay
+// 		}
+// 		count += delta
+// 	}
+// 	return
+// }
 
-	slotIsBusy := true
-	// якщо поточний слот вільний, то один з сусідніх має бути зайнятим, причому в сітці, або всі вільні
-	if !sg.BusyGrid.IsBusy(LessonSlot{Day: slot.Day, Slot: slot.Slot}) {
-		if sg.CountLessonsOn(slot.Day) == 0 {
-			slotIsBusy = false
-		} else {
-			for _, value := range []int{-1, 1} {
-				tmpSlot := LessonSlot{Day: slot.Day, Slot: slot.Slot + value}
-				if err := sg.CheckSlot(tmpSlot); err == nil && sg.BusyGrid.IsBusy(tmpSlot) {
-					slotIsBusy = false
-				}
-			}
-		}
-	}
-
-	return sg.CheckLessonDayLimitReached(slot.Day) || slotIsBusy
-}
-
-func (sg *StudentGroup) CountSlotsAtDay(day int) (count int) {
-	if day < 0 || day > 6 {
-		return
-	}
-
-	for week := 0; sg.CheckDay(day+week*7) == nil; week++ {
-		currentDay := day + week*7
-		delta := 0
-		for slot := range sg.Grid[currentDay] {
-			if !sg.IsBusy(LessonSlot{Day: currentDay, Slot: slot}) {
-				delta++
-			}
-		}
-		if delta > sg.MaxLessonsPerDay {
-			delta = sg.MaxLessonsPerDay
-		}
-		count += delta
-	}
-	return
-}
-
+// GetFreeSlots returns free slots of the selected day (day).
+//
+// If a day out of the grid returns an empty array.
 func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	if err := sg.CheckDay(day); err != nil {
 		return []float32{}
@@ -79,7 +98,7 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 
 	slots = make([]float32, len(sg.Grid[day]))
 
-	// випадок, коли ще немає занять
+	// the group hasn't lesson that day
 	if sg.CountLessonsOn(day) == 0 {
 		for i := range slots {
 			slots[i] = sg.Grid[day][i]
@@ -88,17 +107,17 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	}
 
 	for i := range sg.Grid[day] {
-		// пропускаємо 1 елемент щоб далі не виникло помилок
+		// skip first element to perform away algorithm correctly
 		if i == 0 {
 			continue
 		}
 
-		// якщо у поточному слоті вже є пара, а у попередньому ні, вписуємо попередній слот як доступний
+		// if there is a lesson at the current slot and the previous slot is free, mark the previous slot as available
 		if sg.IsBusy(LessonSlot{Day: day, Slot: i}) {
 			if !sg.IsBusy(LessonSlot{Day: day, Slot: i - 1}) {
 				slots[i-1] = sg.Grid[day][i-1]
 			}
-			// якщо у слоті немає пари, а у попередньому вона є, то вписуємо поточний слот як доступний
+			// if the current slot is busy and the previous slot is free, mark the current slot as available
 		} else {
 			if sg.IsBusy(LessonSlot{Day: day, Slot: i - 1}) {
 				slots[i] = sg.Grid[day][i]
@@ -108,17 +127,20 @@ func (sg *StudentGroup) GetFreeSlots(day int) (slots []float32) {
 	return
 }
 
+// MoveLessonTo uses the MoveLessonTo BusyGrid method to move the lesson. If the lesson can't be moved
+// returns the error generated by the LessonCanBeMoved method.
 func (sg *StudentGroup) MoveLessonTo(lesson *Lesson, to LessonSlot) error {
 	if err := sg.LessonCanBeMoved(lesson, to); err != nil {
 		return err
 	}
 
-	return sg.BusyGrid.MoveLessonTo(lesson, to)
+	return sg.BusyGrid.MoveLessonTo(lesson.LessonSlot, to)
 }
 
-// Additionally checks the type of day
+// LessonCanBeMoved uses the LessonCanBeMoved BusyGrid check on the first order, then additionally
+// checks the type of the day.
 func (sg *StudentGroup) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
-	if err := sg.BusyGrid.LessonCanBeMoved(lesson, to); err != nil {
+	if err := sg.BusyGrid.LessonCanBeMoved(lesson.LessonSlot, to); err != nil {
 		return err
 	}
 
@@ -130,10 +152,13 @@ func (sg *StudentGroup) LessonCanBeMoved(lesson *Lesson, to LessonSlot) error {
 }
 
 // ==========================================================================================================
-// =========================================== LessonType BINDING ===========================================
+// ======================================= LessonTypeBinder OVERRIDES =======================================
 // ==========================================================================================================
 
-// returns -1 if student group hasn't free day
+// GetNextDayOfType finds the next free day of the selected lesson type. Starts with the start day position.
+// The method does NOT return days where the student group is already fully loaded.
+//
+// Returns -1 if the student group doesn't have a free day.
 func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	// if len(sg.LessonTypeBinding[lType].Days) == 0 {
 	// 	return -1
@@ -141,7 +166,7 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 
 	for i := startDay; sg.CheckDay(i) == nil; i++ {
 		if sg.IsDayOfType(lType, i) {
-			if !sg.CheckLessonDayLimitReached(i) {
+			if !sg.CheckDayOverload(i) {
 				return i
 			}
 		}
@@ -150,80 +175,36 @@ func (sg *StudentGroup) GetNextDayOfType(lType *LessonType, startDay int) int {
 	return -1
 }
 
-// Returns true if a lesson of type lType can be scheduled on the day given; otherwise, returns false.
-func (sg *StudentGroup) IsDayOfType(lType *LessonType, day int) bool {
-	// checks if the week of the day is bound for another lesson type
-	for lessonType, load := range sg.LessonTypeBinding {
-		if lessonType != lType && slices.Contains(load.Weeks, day/7) {
-			return false
-		}
-	}
-
-	return slices.Contains(sg.LessonTypeBinding[lType].Days, day%7) || slices.Contains(sg.LessonTypeBinding[lType].Weeks, day/7)
+// HasLessonsOfType Returns true if the student group has lessons of type (lType).
+func (sg *StudentGroup) HasLessonsOfType(lType *LessonType) bool {
+	return slices.Contains(sg.GetOwnLessonTypes(), lType)
 }
 
-func (sg *StudentGroup) GetMaxHours(lType *LessonType) int {
-	if sgl, ok := sg.LessonTypeBinding[lType]; ok {
-		return sgl.RequiredHours
-	}
-	return 0
-}
-
-func (sg *StudentGroup) AddBindingToLessonType(lType *LessonType, hours int, teacher *Teacher) error {
-	if lType == nil {
-		return fmt.Errorf("lesson type is nil")
+// BindWeek uses the BindWeek method on the first order.
+// Then it binds to connected groups, ignoring their errors.
+func (sg *StudentGroup) BindWeek(lType *LessonType, week int) error {
+	if err := sg.LessonTypeBinder.BindWeek(lType, week); err != nil {
+		return err
 	}
 
-	_, ok := sg.LessonTypeBinding[lType]
-	if !ok {
-		sg.LessonTypeBinding[lType] = &StudentGroupLoad{}
+	for _, group := range sg.connectedGroups {
+		group.LessonTypeBinder.BindWeek(lType, week)
 	}
 
-	sg.LessonTypeBinding[lType].RequiredHours += hours
-	if slices.Index(sg.Teachers, teacher) == -1 {
-		sg.Teachers = append(sg.Teachers, teacher)
-	}
 	return nil
 }
 
-func (sg *StudentGroup) AddDayToLessonType(lType *LessonType, day int) error {
-	if day < 0 || day > 6 {
-		return fmt.Errorf("day %d out of range (%d to %d)", day, 0, 6)
+// BindWeekday uses the BindWeekday method on the first order.
+// Then it binds to connected groups, ignoring their errors.
+func (sg *StudentGroup) BindWeekday(lType *LessonType, day int) error {
+	if err := sg.LessonTypeBinder.BindWeekday(lType, day); err != nil {
+		return err
 	}
 
-	load, ok := sg.LessonTypeBinding[lType]
-	if !ok {
-		return fmt.Errorf("type %s not found", lType.Name)
-	}
-	for lessonType, load := range sg.LessonTypeBinding {
-		if slices.Contains(load.Days, day) {
-			return fmt.Errorf("day %d already typed as %s", day, lessonType.Name)
-		}
+	for _, group := range sg.connectedGroups {
+		group.LessonTypeBinder.BindWeekday(lType, day)
 	}
 
-	load.Days = append(load.Days, day)
-	slices.Sort(load.Days)
-	return nil
-}
-
-// Binds for a week for a certain lesson type. If the week is already bound or out of the grid, it returns an errors.
-func (sg *StudentGroup) AddWeekToLessonType(lType *LessonType, week int) error {
-	if err := sg.CheckDay(week * 7); err != nil {
-		return fmt.Errorf("week %d out of range: %s", week, err.Error())
-	}
-
-	load, ok := sg.LessonTypeBinding[lType]
-	if !ok {
-		return fmt.Errorf("type %s not found", lType.Name)
-	}
-	for lessonType, load := range sg.LessonTypeBinding {
-		if slices.Contains(load.Weeks, week) {
-			return fmt.Errorf("week %d already typed as %s", week, lessonType.Name)
-		}
-	}
-
-	load.Weeks = append(load.Weeks, week)
-	slices.Sort(load.Weeks)
 	return nil
 }
 
@@ -231,7 +212,9 @@ func (sg *StudentGroup) AddWeekToLessonType(lType *LessonType, week int) error {
 // ================================================= OTHERS =================================================
 // ==========================================================================================================
 
-func (sg *StudentGroup) CheckLessonDayLimitReached(day int) bool {
+// CheckDayOverload returns false if the student group has fewer lessons than the limit, set as MaxLessonsPerDay.
+// It uses the CountLessonsOn method to get the number of lessons.
+func (sg *StudentGroup) CheckDayOverload(day int) bool {
 	if err := sg.CheckDay(day); err != nil {
 		return true
 	}
@@ -239,61 +222,52 @@ func (sg *StudentGroup) CheckLessonDayLimitReached(day int) bool {
 	return sg.CountLessonsOn(day) >= sg.MaxLessonsPerDay
 }
 
-func (sg *StudentGroup) AddLesson(lesson *Lesson, ignoreCheck bool) error {
+// AddLesson registers the lesson at all dependent services.
+//
+// Returns an error if CheckLesson fails.
+func (sg *StudentGroup) AddLesson(lesson *Lesson) error {
 	err := sg.CheckLesson(lesson)
-	if err != nil && !ignoreCheck {
+	if err != nil {
 		return err
 	}
 
-	sg.SetOneSlotBusyness(lesson.Slot, true)
-	sg.LessonTypeBinding[lesson.Type].AddLesson(lesson)
+	sg.SetSlotBusyState(lesson.LessonSlot, true)
+	for _, g := range sg.connectedGroups {
+		g.SetSlotBusyState(lesson.LessonSlot, true)
+	}
+	sg.StudentLoadService.AddLesson(lesson)
 
 	return err
 }
 
+// CheckLesson checks if the lesson can be added. It checks slot validation, availability,
+// day load, and curriculum limits.
+//
+// Return an error if validation fails.
 func (sg *StudentGroup) CheckLesson(lesson *Lesson) error {
-	if err := sg.CheckSlot(lesson.Slot); err != nil {
+	if err := sg.CheckSlot(lesson.LessonSlot); err != nil {
 		return err
 	}
-	if sg.IsBusy(lesson.Slot) {
+	if !sg.IsFree(lesson.LessonSlot) {
 		return fmt.Errorf("student group is busy")
 	}
+	if sg.CheckDayOverload(lesson.Day) {
+		return fmt.Errorf("student group is fully loaded for this day")
+	}
 
-	if !sg.IsDayOfType(lesson.Type, lesson.Slot.Day) {
+	if sg.IsEnoughLessons() {
+		return fmt.Errorf("student group is fully loaded")
+	}
+
+	if !sg.IsDayOfType(lesson.Type, lesson.Day) {
 		return fmt.Errorf("type %s not in the correct day", lesson.Type.Name)
 	}
 
 	return nil
 }
 
-func (sg *StudentGroup) CountHourDeficit() (count int) {
-	for _, studentGroupLoad := range sg.LessonTypeBinding {
-		count += studentGroupLoad.CountHourDeficit()
-	}
-
-	return count
-}
-
-// Returns sum of lesson overlap.
-func (sg *StudentGroup) CountLessonOverlapping() (count int) {
-	for _, load := range sg.LessonTypeBinding {
-		count += sg.BusyGrid.CountLessonOverlapping(load.Lessons)
-	}
-
-	return
-}
-
-// Returns types of lesson for student group
-func (sg *StudentGroup) GetOwnLessonTypes() []*LessonType {
-	keys := make([]*LessonType, 0, len(sg.LessonTypeBinding))
-	for lt := range sg.LessonTypeBinding {
-		keys = append(keys, lt)
-	}
-	return keys
-}
-
-// Returns the total number of overtime lessons (above the daily limit) for the student group.
-func (sg *StudentGroup) GetOvertimeLessons() (result int) {
+// CountOvertimeLessons returns the total number of overtime lessons (above the daily limit) for the student group.
+func (sg *StudentGroup) CountOvertimeLessons() (result int) {
 	for day := 0; true; day++ {
 		count := sg.CountLessonsOn(day)
 		if count == -1 {
@@ -304,14 +278,111 @@ func (sg *StudentGroup) GetOvertimeLessons() (result int) {
 	return
 }
 
-// Returns the total number of lesson scheduled on days that are not allowed for their type.
-func (sg *StudentGroup) GetInvalidLessonsType() (result int) {
-	for _, value := range sg.LessonTypeBinding {
-		for _, lesson := range value.Lessons {
-			if !sg.IsDayOfType(lesson.Type, lesson.Slot.Day) {
-				result += 1
-			}
+// CountInvalidLessonsType returns the total number of lesson scheduled on days that are not allowed for their type.
+func (sg *StudentGroup) CountInvalidLessonsByType() (result int) {
+	lessons := sg.GetAssignedLessons()
+	for _, lesson := range lessons {
+		if !sg.IsDayOfType(lesson.Type, lesson.Day) {
+			result += 1
 		}
 	}
+
 	return
+}
+
+// ==========================================================================================================
+// =========================================== StudentLoadService ===========================================
+// ==========================================================================================================
+
+// StudentLoadService tracks and evaluates the study workload for a StudentGroup.
+type StudentLoadService interface {
+	LoadService                            // Base interface for load validation logic.
+	AddLoad(key StudentLoadKey, hours int) // Registers a new required load entry.
+	GetOwnLessonTypes() []*LessonType
+}
+
+// NewStudentLoadService creates a new basic StudentLoadService instance.
+func NewStudentLoadService() StudentLoadService {
+	return &studentLoadService{
+		loads: make(map[StudentLoadKey]studentLoad),
+	}
+}
+
+// studentLoadService is the basic implementation of the StudentLoadService interface.
+type studentLoadService struct {
+	loads map[StudentLoadKey]studentLoad
+}
+
+func (s *studentLoadService) AddLesson(lesson *Lesson) {
+	key := StudentLoadKey{
+		discipline: lesson.Discipline,
+		lessonType: lesson.Type,
+		teacher:    lesson.Teacher,
+	}
+
+	load, ok := s.loads[key]
+	if ok {
+		load.checker.AddLesson(lesson)
+		return
+	}
+
+	panic("student load not found")
+}
+func (s *studentLoadService) CountHourDeficit() (count int) {
+	for _, load := range s.loads {
+		count += load.checker.CountHourDeficit()
+	}
+	return
+}
+func (s *studentLoadService) IsEnoughLessons() bool {
+	for _, load := range s.loads {
+		if !load.checker.IsEnoughLessons() {
+			return false
+		}
+	}
+	return true
+}
+func (s *studentLoadService) GetAssignedLessons() (result []*Lesson) {
+	for _, load := range s.loads {
+		result = append(result, load.checker.GetAssignedLessons()...)
+	}
+	return
+}
+func (s *studentLoadService) AddLoad(key StudentLoadKey, hours int) {
+	if _, ok := s.loads[key]; !ok {
+		s.loads[key] = studentLoad{
+			checker: NewLoadService(hours),
+		}
+	}
+}
+func (s *studentLoadService) GetOwnLessonTypes() (result []*LessonType) {
+	for key := range s.loads {
+		if !slices.Contains(result, key.lessonType) {
+			result = append(result, key.lessonType)
+		}
+	}
+
+	return
+}
+
+// NewStudentLoadKey creates a new StudentLoadKey instance.
+//
+// It requires pointers to discipline, lesson type and teacher.
+func NewStudentLoadKey(d *Discipline, lt *LessonType, t *Teacher) StudentLoadKey {
+	return StudentLoadKey{
+		discipline: d,
+		lessonType: lt,
+		teacher:    t,
+	}
+}
+
+// StudentLoadKey is a composite key used to identify a student load entry.
+type StudentLoadKey struct {
+	discipline *Discipline
+	lessonType *LessonType
+	teacher    *Teacher
+}
+
+type studentLoad struct {
+	checker LoadService
 }

@@ -15,15 +15,15 @@ type BoneGenerator interface {
 }
 
 // NewBoneGenerator creates a BoneGenerator instance.
-// It requires an ErrorService, a list of teachers, a LessonService,
+// It requires an ErrorService, a list of study loads, a LessonService,
 // and the target bone-week number (bw).
-func NewBoneGenerator(es ErrorService, t []*entities.Teacher, ls services.LessonService, bw int) BoneGenerator {
-	return &boneGenerator{errorService: es, teachers: t, lessonService: ls, boneWeek: bw}
+func NewBoneGenerator(es ErrorService, l []*entities.UnassignedLesson, ls services.LessonService, bw int) BoneGenerator {
+	return &boneGenerator{errorService: es, loads: l, lessonService: ls, boneWeek: bw}
 }
 
 type boneGenerator struct {
 	errorService  ErrorService
-	teachers      []*entities.Teacher
+	loads         []*entities.UnassignedLesson
 	lessonService services.LessonService
 	boneWeek      int
 }
@@ -32,56 +32,43 @@ type boneGenerator struct {
 // Uses brute force method, starts with teachers, then discipline and student groups,
 // then free slots for lesson type.
 func (bg *boneGenerator) GenerateBoneLessons() {
-	for i := range bg.teachers {
-		teacher := bg.teachers[i]
+	for _, load := range bg.loads {
+		teacher := load.Teacher
+		studentGroup := load.StudentGroup
+		lessonType := load.Type
+		// discipline := load.Discipline
 
-		for _, teacherLoad := range teacher.Load {
-			for _, studentGroup := range teacherLoad.Groups {
-				offset := 0
-				success := false
+		offset := 0
+		success := false
 
-				for !success {
-					// отримуємо доступний лекційний день
-					day := studentGroup.GetNextDayOfType(teacherLoad.LessonType, bg.boneWeek*7+offset)
-					if day > bg.boneWeek*7+7 || day < 0 {
-						// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
-						bg.errorService.AddError(
-							&BoneWeekError{
-								teacher:    teacher,
-								group:      studentGroup,
-								lessonType: teacherLoad.LessonType,
-								discipline: teacherLoad.Discipline,
-							},
-						)
-						break
-					}
-
-					// отримання вільного слота для групи та викладача
-					lessonSlot := teacher.GetFreeSlot(studentGroup.GetFreeSlots(day), day)
-
-					if lessonSlot != -1 {
-						slot := entities.LessonSlot{Day: day, Slot: lessonSlot}
-						err := bg.lessonService.AddLesson(teacher, studentGroup, teacherLoad.Discipline, slot, teacherLoad.LessonType)
-						if err != nil {
-							bg.errorService.AddError(NewUnexpectedError("slot is busy but algorithm determined it as free",
-								"boneGenerator", "GenerateBoneLessons", &FalseFreeSlotError{
-									UnsignedLesson: entities.UnsignedLesson{
-										Teacher:      teacher,
-										StudentGroup: studentGroup,
-										Discipline:   teacherLoad.Discipline,
-										Type:         teacherLoad.LessonType,
-									},
-									slot: slot,
-									err:  err,
-								}))
-						}
-						success = true
-					}
-					offset = day - bg.boneWeek*7 + 1
-				}
-
+		for !success {
+			// отримуємо доступний лекційний день
+			day := studentGroup.GetNextDayOfType(lessonType, bg.boneWeek*7+offset)
+			if day > bg.boneWeek*7+7 || day < 0 {
+				// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
+				bg.errorService.AddError(&BoneWeekError{UnassignedLesson: *load})
+				break
 			}
+
+			// отримання вільного слота для групи та викладача
+			lessonSlot := teacher.GetOptimalFreeSlot(studentGroup.GetFreeSlots(day), day)
+
+			if lessonSlot != -1 {
+				slot := entities.LessonSlot{Day: day, Slot: lessonSlot}
+				err := bg.lessonService.AssignLesson(*load, slot)
+				if err != nil {
+					bg.errorService.AddError(NewUnexpectedError("slot is busy but algorithm determined it as free",
+						"boneGenerator", "GenerateBoneLessons", &FalseFreeSlotError{
+							UnassignedLesson: *load,
+							slot:             slot,
+							err:              err,
+						}))
+				}
+				success = true
+			}
+			offset = day - bg.boneWeek*7 + 1
 		}
+
 	}
 }
 
@@ -97,15 +84,12 @@ func (bg *boneGenerator) GetErrorService() ErrorService {
 // BoneWeekError indicates that the BoneGenerator failed to allocate
 // enough space for lessons within the bone week.
 type BoneWeekError struct {
-	teacher    *entities.Teacher
-	group      *entities.StudentGroup
-	lessonType *entities.LessonType
-	discipline *entities.Discipline
+	entities.UnassignedLesson
 }
 
 func (e *BoneWeekError) Error() string {
 	return fmt.Sprintf("Not enough space in bone week of %s or %s for %s %s.",
-		e.group.Name, e.teacher.UserName, e.lessonType.Name, e.discipline.Name)
+		e.StudentGroup.Name, e.Teacher.UserName, e.Type.Name, e.Discipline.Name)
 }
 
 func (e *BoneWeekError) GetTypeOfError() GeneratorComponentErrorTypes {
@@ -114,7 +98,7 @@ func (e *BoneWeekError) GetTypeOfError() GeneratorComponentErrorTypes {
 
 // FalseFreeSlotError indicates that slot is busy but algorithm determined it as free.
 type FalseFreeSlotError struct {
-	entities.UnsignedLesson
+	entities.UnassignedLesson
 	slot entities.LessonSlot
 	err  error
 }

@@ -34,34 +34,34 @@ func (imp *improver) ImproveToNext() bool {
 		for day := imp.currentSlot.Day; !dayOutOfRange; day++ {
 			slotOutOfRange := false
 			for slot := startSlot; !slotOutOfRange && !dayOutOfRange; slot++ {
-				err := imp.lessonService.MoveLesson(currentLesson, entities.LessonSlot{Slot: slot, Day: day})
+				err := imp.lessonService.MoveLessonTo(currentLesson, entities.LessonSlot{Slot: slot, Day: day})
 				switch err.(type) {
 				case entities.DayOutError:
 					dayOutOfRange = true
 				case entities.SlotOutError:
 					slotOutOfRange = true
 				case nil:
-					imp.currentSlot = currentLesson.Slot
+					imp.currentSlot = currentLesson.LessonSlot
 					return true
 				}
 			}
 			startSlot = 0 // starts slots from beginning
 		}
 
-		if currentLesson.Slot != imp.startSlot {
-			imp.lessonService.MoveLesson(currentLesson, imp.startSlot)
+		if currentLesson.LessonSlot != imp.startSlot {
+			imp.lessonService.MoveLessonTo(currentLesson, imp.startSlot)
 		}
 
 		imp.currentLesson++
 		if imp.currentLesson >= len(lessons) {
 			return false
 		}
-		imp.startSlot = lessons[imp.currentLesson].Slot
+		imp.startSlot = lessons[imp.currentLesson].LessonSlot
 		imp.currentSlot = entities.LessonSlot{Day: 0, Slot: 0}
 	}
 }
 
 func (imp *improver) SubmitChanges() {
 	lessons := imp.lessonService.GetAll()
-	imp.startSlot = lessons[imp.currentLesson].Slot
+	imp.startSlot = lessons[imp.currentLesson].LessonSlot
 }

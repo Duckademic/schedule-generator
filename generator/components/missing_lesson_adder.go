@@ -16,66 +16,61 @@ type MissingLessonsAdder interface {
 
 // NewMissingLessonAdder creates a MissingLessonsAdder instance.
 // It requires an ErrorService, a list of teachers and a LessonService.
-func NewMissingLessonAdder(es ErrorService, t []*entities.Teacher, ls services.LessonService) MissingLessonsAdder {
-	return &missingLessonsAdder{errorService: es, teachers: t, lessonService: ls}
+func NewMissingLessonAdder(es ErrorService, l []*entities.UnassignedLesson, ls services.LessonService) MissingLessonsAdder {
+	return &missingLessonsAdder{errorService: es, loads: l, lessonService: ls}
 }
 
 type missingLessonsAdder struct {
-	errorService  ErrorService
-	teachers      []*entities.Teacher
+	errorService ErrorService
+	// teachers      []*entities.Teacher
+	loads         []*entities.UnassignedLesson
 	lessonService services.LessonService
 }
 
 func (ma *missingLessonsAdder) AddMissingLessons() {
-	for i := range ma.teachers {
-		teacher := ma.teachers[i]
+	for _, load := range ma.loads {
+		teacher := load.Teacher
+		studentGroup := load.StudentGroup
+		lessonType := load.Type
+		// discipline := load.Discipline
 
-		for _, teacherLoad := range teacher.Load {
-			for _, group := range teacherLoad.Groups {
-				currentDay := 0
-				outOfGrid := false
-				for !teacherLoad.Discipline.EnoughHours() && !outOfGrid {
-					err := group.CheckDay(currentDay)
-					if err != nil {
-						outOfGrid = true
-						//continue
-						break
-					}
-
-					for i := range teacher.BusyGrid.Grid[currentDay] {
-						slot := entities.LessonSlot{
-							Day:  currentDay,
-							Slot: i,
-						}
-						ma.lessonService.AddLesson(
-							teacher,
-							group,
-							teacherLoad.Discipline,
-							slot,
-							teacherLoad.LessonType,
-						)
-					}
-					delta := group.GetNextDayOfType(teacherLoad.LessonType, currentDay+1)
-					if delta == -1 {
-						outOfGrid = true
-						continue
-					}
-					currentDay += delta
-				}
-
-				if !teacherLoad.Discipline.EnoughHours() {
-					ma.errorService.AddError(&MissingLessonsAdderError{
-						UnsignedLesson: entities.UnsignedLesson{
-							Teacher:      teacher,
-							StudentGroup: group,
-							Discipline:   teacherLoad.Discipline,
-							Type:         teacherLoad.LessonType,
-						},
-					})
-				}
+		currentDay := 0
+		outOfGrid := false
+		for !outOfGrid {
+			err := studentGroup.CheckDay(currentDay)
+			if err != nil {
+				outOfGrid = true
+				//continue
+				break
 			}
+
+			for i := range teacher.BusyGrid.Grid[currentDay] {
+				slot := entities.LessonSlot{
+					Day:  currentDay,
+					Slot: i,
+				}
+				ma.lessonService.AssignLesson(*load, slot)
+			}
+			delta := studentGroup.GetNextDayOfType(lessonType, currentDay+1)
+			if delta == -1 {
+				outOfGrid = true
+				continue
+			}
+			currentDay += delta
 		}
+
+		// if !teacherLoad.Discipline.EnoughHours() {
+		// 	ma.errorService.AddError(&MissingLessonsAdderError{
+		// 		UnsignedLesson: entities.UnsignedLesson{
+		// 			Teacher:      teacher,
+		// 			StudentGroup: group,
+		// 			Discipline:   teacherLoad.Discipline,
+		// 			Type:         teacherLoad.LessonType,
+		// 		},
+		// 	})
+		// }
 	}
+
 }
 
 // Redirect to AddMissingLessons function
@@ -90,7 +85,7 @@ func (ma *missingLessonsAdder) GetErrorService() ErrorService {
 // MissingLessonsAdderError indicates that the MissingLessonsAdder failed to
 // find free slot in the grids for missing lesson.
 type MissingLessonsAdderError struct {
-	entities.UnsignedLesson
+	entities.UnassignedLesson
 }
 
 func (e *MissingLessonsAdderError) Error() string {

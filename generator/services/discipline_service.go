@@ -6,25 +6,29 @@ import (
 	"github.com/google/uuid"
 )
 
+// DisciplineService aggregates and manages disciplines that the generator works with.
 type DisciplineService interface {
-	GetAll() []*entities.Discipline
-	Find(uuid.UUID) *entities.Discipline
-	CountHourDeficit() int
+	Find(uuid.UUID) *entities.Discipline // Returns a pointer to the discipline with the given ID.
+	GetAll() []*entities.Discipline      // Returns an array with all disciplines as pointers.
 }
 
-func NewDisciplineService(disciplines []types.Discipline) (DisciplineService, error) {
-	ds := disciplineService{disciplines: make([]*entities.Discipline, len(disciplines))}
+// NewDisciplineService creates a new DisciplineService basic instance.
+//
+// It requires an array of database disciplines (d).
+func NewDisciplineService(d []types.Discipline) (DisciplineService, error) {
+	ds := disciplineService{disciplines: make([]*entities.Discipline, len(d))}
 
-	for i := range disciplines {
+	for i := range d {
 		ds.disciplines[i] = &entities.Discipline{
-			ID:   disciplines[i].ID,
-			Name: disciplines[i].Name,
+			ID:   d[i].ID,
+			Name: d[i].Name,
 		}
 	}
 
 	return &ds, nil
 }
 
+// disciplineService is the basic implementation of the DisciplineService interface.
 type disciplineService struct {
 	disciplines []*entities.Discipline
 }
@@ -32,7 +36,6 @@ type disciplineService struct {
 func (ds *disciplineService) GetAll() []*entities.Discipline {
 	return ds.disciplines
 }
-
 func (ds *disciplineService) Find(disciplineID uuid.UUID) *entities.Discipline {
 	for i := range ds.disciplines {
 		if ds.disciplines[i].ID == disciplineID {
@@ -41,13 +44,4 @@ func (ds *disciplineService) Find(disciplineID uuid.UUID) *entities.Discipline {
 	}
 
 	return nil
-}
-
-// Returns hour deficit of all disciplines.
-// Time complexity O(n)
-func (ds *disciplineService) CountHourDeficit() (count int) {
-	for _, d := range ds.disciplines {
-		count += d.CountHourDeficit()
-	}
-	return
 }

@@ -1,57 +1,72 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/Duckademic/schedule-generator/generator/entities"
 	"github.com/Duckademic/schedule-generator/types"
 	"github.com/google/uuid"
 )
 
+// StudentGroupService aggregates and manages student groups that the generator works with.
 type StudentGroupService interface {
-	GetAll() []*entities.StudentGroup
-	Find(uuid.UUID) *entities.StudentGroup
-	CountWindows() int // Returns sum of all student groups windows
-	CountHourDeficit() int
-	CountLessonOverlapping() int   // Returns sum of all lesson overlap.
-	CountOvertimeLessons() int     // Return sum of all overtime lesson (above the daily limit).
-	CountInvalidLessonsTypes() int // Returns sum of all lesson scheduled on days that are not allowed for their types.
+	Find(uuid.UUID) *entities.StudentGroup // Returns a pointer to the student group with the given ID.
+	GetAll() []*entities.StudentGroup      // Returns a slice with all student groups as pointers.
+	CountWindows() int                     // Returns the sum of windows (gaps between busy slots).
+	CountHourDeficit() int                 // Returns the number of missing study hours.
+	CountLessonOverlapping() int           // Returns the count of overlapping lessons.
+	CountOvertimeLessons() int             // Returns the total number of overtime lessons (above the daily limit).
+	// Returns the total number of lesson scheduled on days that are not allowed for their type.
+	CountInvalidLessonsByType() int
 }
 
-type studentGroupService struct {
-	studentGroups []*entities.StudentGroup
-}
-
-func NewStudentGroupService(studentGroups []types.StudentGroup, maxLessonsPerDay int, busyGrid [][]float32) (StudentGroupService, error) {
+// NewStudentGroupService creates a new StudentGroupService basic instance.
+//
+// It requires an array of database student groups (sg), day load limit (dll), and a busy grid for them (bg).
+//
+// Returns an error if any student group is an invalid model.
+func NewStudentGroupService(sg []types.StudentGroup, dl int, bg [][]float32) (StudentGroupService, error) {
 	sgs := studentGroupService{
-		studentGroups: make([]*entities.StudentGroup, len(studentGroups)),
+		studentGroups: make([]*entities.StudentGroup, len(sg)),
 	}
 
-	for i := range studentGroups {
-		sgs.studentGroups[i] = &entities.StudentGroup{
-			ID:                studentGroups[i].ID,
-			Name:              studentGroups[i].Name,
-			MaxLessonsPerDay:  maxLessonsPerDay,
-			LessonTypeBinding: map[*entities.LessonType]*entities.StudentGroupLoad{},
-		}
+	for i := range sg {
+		sgs.studentGroups[i] = entities.NewDefaultStudentGroup(sg[i].ID, sg[i].Name, dl, entities.NewBusyGrid(bg))
 		studentGroup := sgs.studentGroups[i]
-		studentGroup.BusyGrid = *entities.NewBusyGrid(busyGrid)
 
-		md := studentGroups[i].MilitaryDay
+		// set military day by marks slots on this day as blocked
+		md := sg[i].MilitaryDay
 		if md != -1 {
 			if err := studentGroup.CheckWeekDay(md); err != nil {
 				return nil, err
 			}
-			studentGroup.SetDayBusyness(make([]float32, len(studentGroup.Grid[md])), md)
+			studentGroup.BlockWeekDay(md)
+		}
+	}
+
+	// create connection for student groups
+	for i := range sg {
+		mainGroup := sgs.Find(sg[i].ID)
+		for _, gID := range sg[i].ConnectedGroups {
+			otherG := sgs.Find(gID)
+			if otherG == nil {
+				return nil, fmt.Errorf("Can't find connected group %s for group %s (%s)", gID, sg[i].Name, sg[i].ID)
+			}
+			otherG.AddConnectedGroup(mainGroup)
 		}
 	}
 
 	return &sgs, nil
 }
 
+// studentGroupService is the basic implementation of the StudentGroupService interface.
+type studentGroupService struct {
+	studentGroups []*entities.StudentGroup
+}
+
 func (sgs *studentGroupService) GetAll() []*entities.StudentGroup {
 	return sgs.studentGroups
 }
-
-// return nil if not found
 func (sgs *studentGroupService) Find(id uuid.UUID) *entities.StudentGroup {
 	for i := range sgs.studentGroups {
 		if sgs.studentGroups[i].ID == id {
@@ -61,14 +76,12 @@ func (sgs *studentGroupService) Find(id uuid.UUID) *entities.StudentGroup {
 
 	return nil
 }
-
 func (sgs *studentGroupService) CountWindows() (count int) {
 	for _, g := range sgs.studentGroups {
 		count += g.CountWindows()
 	}
 	return
 }
-
 func (sgs *studentGroupService) CountHourDeficit() (count int) {
 	for _, studentGroup := range sgs.studentGroups {
 		count += studentGroup.CountHourDeficit()
@@ -76,25 +89,22 @@ func (sgs *studentGroupService) CountHourDeficit() (count int) {
 
 	return count
 }
-
 func (sgs *studentGroupService) CountLessonOverlapping() (count int) {
 	for _, studentGroup := range sgs.studentGroups {
-		count += studentGroup.CountLessonOverlapping()
+		count += studentGroup.CountLessonOverlapping(studentGroup.GetAssignedLessons())
 	}
 
 	return
 }
-
 func (sgs *studentGroupService) CountOvertimeLessons() (count int) {
 	for _, sg := range sgs.studentGroups {
-		count += sg.GetOvertimeLessons()
+		count += sg.CountOvertimeLessons()
 	}
 	return
 }
-
-func (sgs *studentGroupService) CountInvalidLessonsTypes() (count int) {
+func (sgs *studentGroupService) CountInvalidLessonsByType() (count int) {
 	for _, sg := range sgs.studentGroups {
-		count += sg.GetInvalidLessonsType()
+		count += sg.CountInvalidLessonsByType()
 	}
 	return
 }

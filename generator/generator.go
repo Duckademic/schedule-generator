@@ -27,9 +27,9 @@ type ScheduleGenerator struct {
 	lessonService       services.LessonService
 	disciplineService   services.DisciplineService
 	lessonTypeService   services.LessonTypeService
+	studyLoadService    services.StudyLoadService
 	errorService        components.ErrorService
 	boneWeek            int
-	studyLoadSet        bool
 }
 
 func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
@@ -109,46 +109,13 @@ func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
 		return err
 	}
 
-	for _, studyLoad := range studyLoads {
-		teacher := g.teacherService.Find(studyLoad.TeacherID)
-		if teacher == nil {
-			return fmt.Errorf("teacher %s not found", studyLoad.TeacherID)
-		}
-
-		for _, disciplineLoad := range studyLoad.Disciplines {
-			discipline := g.disciplineService.Find(disciplineLoad.DisciplineID)
-			if discipline == nil {
-				return fmt.Errorf("discipline %s not found", disciplineLoad.DisciplineID)
-			}
-			lessonType := g.lessonTypeService.Find(disciplineLoad.LessonTypeID)
-			if lessonType == nil {
-				return fmt.Errorf("lesson type %s not found", disciplineLoad.LessonTypeID)
-			}
-
-			studentGroups := make([]*entities.StudentGroup, len(disciplineLoad.GroupsID))
-			for j, studentGroupID := range disciplineLoad.GroupsID {
-				studentGroup := g.studentGroupService.Find(studentGroupID)
-				if studentGroup == nil {
-					return fmt.Errorf("student group %s not found", studentGroupID)
-				}
-				studentGroup.AddBindingToLessonType(lessonType, disciplineLoad.Hours, teacher)
-				for week := range lessonType.Weeks {
-					studentGroup.AddWeekToLessonType(lessonType, week)
-				}
-
-				studentGroups[j] = studentGroup
-			}
-
-			if err := discipline.AddLoad(teacher, disciplineLoad.Hours, studentGroups, lessonType); err != nil {
-				return err
-			}
-			if err := teacher.AddLoad(discipline, lessonType, studentGroups, disciplineLoad.Hours); err != nil {
-				return err
-			}
-		}
+	sls, err := services.NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService,
+		g.disciplineService, g.lessonTypeService)
+	if err != nil {
+		return err
 	}
 
-	g.studyLoadSet = true
+	g.studyLoadService = sls
 	return nil
 }
 
@@ -165,7 +132,7 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 	}
 
 	if checks[2] && g.disciplineService == nil {
-		return fmt.Errorf("discipline not set")
+		return fmt.Errorf("disciplines not set")
 	}
 
 	if checks[3] && g.lessonTypeService == nil {
@@ -177,17 +144,17 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 
 // main function
 func (g *ScheduleGenerator) GenerateSchedule() error {
-	if !g.studyLoadSet {
+	if g.studyLoadService == nil {
 		return fmt.Errorf("study loads not set")
 	}
 
 	components.NewDayBlocker(g.studentGroupService.GetAll(), g.errorService).SetDayTypes()
 
-	components.NewBoneGenerator(g.errorService, g.teacherService.GetAll(), g.lessonService, g.boneWeek).GenerateBoneLessons()
-
+	components.NewBoneGenerator(g.errorService, g.studyLoadService.GetAll(), g.lessonService, g.boneWeek).GenerateBoneLessons()
 	g.buildLessonCarcass()
+	return g.errorService
 
-	components.NewMissingLessonAdder(g.errorService, g.teacherService.GetAll(), g.lessonService).AddMissingLessons()
+	components.NewMissingLessonAdder(g.errorService, g.studyLoadService.GetAll(), g.lessonService).AddMissingLessons()
 
 	// improver := components.NewImprover(g.lessonService)
 	// improver.SubmitChanges() // CRUNCH - sets start slots for first lesson
@@ -216,18 +183,9 @@ func (g *ScheduleGenerator) buildLessonCarcass() {
 	outOfGrid := false
 	for !outOfGrid && currentWeek <= len(g.BusyGrid)/7+1 {
 		for _, lesson := range boneLessons {
-			newSlot := entities.LessonSlot{
-				Day:  lesson.Slot.Day%7 + currentWeek*7,
-				Slot: lesson.Slot.Slot,
-			}
+			newSlot := entities.NewLessonSlot(lesson.Day%7+currentWeek*7, lesson.Slot)
 
-			err := g.lessonService.AddLesson(
-				lesson.Teacher,
-				lesson.StudentGroup,
-				lesson.Discipline,
-				newSlot,
-				lesson.Type,
-			)
+			err := g.lessonService.AssignLesson(lesson.UnassignedLesson, newSlot)
 			if _, ok := err.(entities.DayOutError); ok {
 				outOfGrid = true
 			}
@@ -252,8 +210,11 @@ func (g *ScheduleGenerator) ScheduleFault() (result components.ScheduleFault) {
 	result.AddParameter("student_group_windows", components.NewSimpleScheduleParameter(
 		float64(g.studentGroupService.CountWindows()), 1000,
 	))
-	result.AddParameter("hours_deficit", components.NewSimpleScheduleParameter(
-		float64(g.disciplineService.CountHourDeficit()), 10,
+	result.AddParameter("teacher_hours_deficit", components.NewSimpleScheduleParameter(
+		float64(g.teacherService.CountHourDeficit()), 10,
+	))
+	result.AddParameter("student_group_hours_deficit", components.NewSimpleScheduleParameter(
+		float64(g.studentGroupService.CountHourDeficit()), 10,
 	))
 	result.AddParameter("teacher_lesson_overlapping", components.NewSimpleScheduleParameter(
 		float64(g.teacherService.CountLessonOverlapping()), 10,
@@ -265,7 +226,7 @@ func (g *ScheduleGenerator) ScheduleFault() (result components.ScheduleFault) {
 		float64(g.studentGroupService.CountOvertimeLessons()), 10,
 	))
 	result.AddParameter("student_group_invalid_lessons_by_type", components.NewSimpleScheduleParameter(
-		float64(g.studentGroupService.CountInvalidLessonsTypes()), 10,
+		float64(g.studentGroupService.CountInvalidLessonsByType()), 10,
 	))
 
 	return
