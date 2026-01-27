@@ -216,6 +216,35 @@ func (bg *BusyGrid) LessonCanBeMoved(from, to LessonSlot) error {
 	return nil
 }
 
+// CheckGapOnAdd checks if the slot is free and adding the lesson does not create a gap.
+// Returns an error if it is not.
+func (bg *BusyGrid) CheckGapOnAdd(slot LessonSlot) error {
+	if !bg.IsFree(slot) {
+		return fmt.Errorf("slot (%s) not free", slot.String())
+	}
+
+	checkFunc := func(slot LessonSlot, step int) error {
+		currentSlot := slot
+		currentSlot.Slot += step
+		for bg.IsFree(currentSlot) {
+			currentSlot.Slot += step
+		}
+		if bg.CheckSlot(currentSlot) == nil && (currentSlot.Slot-slot.Slot)*step > 1 {
+			return fmt.Errorf("slot (%s) creates a window; the nearest not-free slot is %s", slot.String(), currentSlot.String())
+		}
+		return nil
+	}
+
+	if err := checkFunc(slot, 1); err != nil {
+		return err
+	}
+	if err := checkFunc(slot, -1); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ==========================================================================================================
 // ================================================= STATES =================================================
 // ==========================================================================================================
@@ -270,15 +299,15 @@ func (bg *BusyGrid) IsBlocked(slot LessonSlot) bool {
 // CountWindows returns the sum of windows (gaps between busy slots).
 func (bg *BusyGrid) CountWindows() (count int) {
 	// Days cycle
-	for i := range len(bg.Grid) {
+	for day := range len(bg.Grid) {
 		lastBusy := -1
 		// Slots cycle
-		for j := range bg.Grid[i] {
-			if bg.IsBusy(LessonSlot{Day: i, Slot: j}) {
-				if lastBusy != -1 && (j-lastBusy) > 1 {
-					count += j - lastBusy - 1
+		for slot := range bg.Grid[day] {
+			if !bg.IsFree(NewLessonSlot(day, slot)) {
+				if lastBusy != -1 && (slot-lastBusy) > 1 {
+					count += slot - lastBusy - 1
 				}
-				lastBusy = j
+				lastBusy = slot
 			}
 		}
 	}

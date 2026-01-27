@@ -232,16 +232,17 @@ func (sg *StudentGroup) AddLesson(lesson *Lesson) error {
 	}
 
 	sg.SetSlotBusyState(lesson.LessonSlot, true)
-	for _, g := range sg.connectedGroups {
-		g.SetSlotBusyState(lesson.LessonSlot, true)
-	}
+	// TODO: Sharing busy state between groups causes bug: student group has a window, but between lessons of connected groups
+	// for _, g := range sg.connectedGroups {
+	// 	g.SetSlotBusyState(lesson.LessonSlot, true)
+	// }
 	sg.StudentLoadService.AddLesson(lesson)
 
 	return err
 }
 
 // CheckLesson checks if the lesson can be added. It checks slot validation, availability,
-// day load, and curriculum limits.
+// day load, curriculum limits and possible formation of the gap.
 //
 // Return an error if validation fails.
 func (sg *StudentGroup) CheckLesson(lesson *Lesson) error {
@@ -253,6 +254,9 @@ func (sg *StudentGroup) CheckLesson(lesson *Lesson) error {
 	}
 	if sg.CheckDayOverload(lesson.Day) {
 		return fmt.Errorf("student group is fully loaded for this day")
+	}
+	if err := sg.CheckGapOnAdd(lesson.LessonSlot); err != nil {
+		return err
 	}
 
 	if sg.IsEnoughLessons() {
