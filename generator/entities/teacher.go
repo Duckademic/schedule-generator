@@ -76,6 +76,8 @@ func (t *Teacher) CheckLesson(lesson *Lesson) error {
 type TeacherLoadService interface {
 	LoadService                            // Basic interface for load validation logic.
 	AddLoad(key TeacherLoadKey, hours int) // Registers a new required load entry.
+	// Returns true if the teacher doesn't require additional lessons for the specific load.
+	IsEnoughLessonsFor(TeacherLoadKey) bool
 }
 
 // NewTeacherLoadService creates a new TeacherLoadService basic instance.
@@ -132,6 +134,14 @@ func (s *teacherLoadService) AddLoad(key TeacherLoadKey, hours int) {
 	if !ok {
 		s.loads[key] = teacherLoad{checker: NewLoadService(hours)}
 	}
+}
+func (s *teacherLoadService) IsEnoughLessonsFor(key TeacherLoadKey) bool {
+	load, ok := s.loads[key]
+	if !ok {
+		return true
+	}
+
+	return load.checker.IsEnoughLessons()
 }
 
 // NewTeacherLoadKey creates a new TeacherLoadKey instance.

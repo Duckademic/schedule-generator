@@ -152,7 +152,6 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 
 	components.NewBoneGenerator(g.errorService, g.studyLoadService.GetAll(), g.lessonService, g.boneWeek).GenerateBoneLessons()
 	g.buildLessonCarcass()
-	return g.errorService
 
 	components.NewMissingLessonAdder(g.errorService, g.studyLoadService.GetAll(), g.lessonService).AddMissingLessons()
 
@@ -161,11 +160,11 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 	// result := true
 	// currentFault := g.ScheduleFault()
 	// for result {
-	// 	if currentFault <= 0.000001 {
+	// 	if currentFault.Fault() <= 0.000001 {
 	// 		break
 	// 	}
 	// 	fault := g.ScheduleFault()
-	// 	if fault < currentFault {
+	// 	if fault.Fault() < currentFault.Fault() {
 	// 		improver.SubmitChanges()
 	// 	}
 	// 	result = improver.ImproveToNext()

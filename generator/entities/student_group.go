@@ -302,7 +302,9 @@ func (sg *StudentGroup) CountInvalidLessonsByType() (result int) {
 type StudentLoadService interface {
 	LoadService                            // Base interface for load validation logic.
 	AddLoad(key StudentLoadKey, hours int) // Registers a new required load entry.
-	GetOwnLessonTypes() []*LessonType
+	GetOwnLessonTypes() []*LessonType      // Returns all lesson types from registered loads.
+	// Returns true if the student group doesn't require additional lessons for the specific load.
+	IsEnoughLessonsFor(StudentLoadKey) bool
 }
 
 // NewStudentLoadService creates a new basic StudentLoadService instance.
@@ -368,6 +370,21 @@ func (s *studentLoadService) GetOwnLessonTypes() (result []*LessonType) {
 
 	return
 }
+func (s *studentLoadService) IsEnoughLessonsFor(key StudentLoadKey) bool {
+	load, ok := s.loads[key]
+	if !ok {
+		return true
+	}
+
+	return load.checker.IsEnoughLessons()
+}
+
+// StudentLoadKey is a composite key used to identify a student load entry.
+type StudentLoadKey struct {
+	discipline *Discipline
+	lessonType *LessonType
+	teacher    *Teacher
+}
 
 // NewStudentLoadKey creates a new StudentLoadKey instance.
 //
@@ -378,13 +395,6 @@ func NewStudentLoadKey(d *Discipline, lt *LessonType, t *Teacher) StudentLoadKey
 		lessonType: lt,
 		teacher:    t,
 	}
-}
-
-// StudentLoadKey is a composite key used to identify a student load entry.
-type StudentLoadKey struct {
-	discipline *Discipline
-	lessonType *LessonType
-	teacher    *Teacher
 }
 
 type studentLoad struct {

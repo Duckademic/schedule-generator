@@ -32,7 +32,7 @@ func (ma *missingLessonsAdder) AddMissingLessons() {
 		teacher := load.Teacher
 		studentGroup := load.StudentGroup
 		lessonType := load.Type
-		// discipline := load.Discipline
+		discipline := load.Discipline
 
 		currentDay := 0
 		outOfGrid := false
@@ -59,16 +59,11 @@ func (ma *missingLessonsAdder) AddMissingLessons() {
 			currentDay += delta
 		}
 
-		// if !teacherLoad.Discipline.EnoughHours() {
-		// 	ma.errorService.AddError(&MissingLessonsAdderError{
-		// 		UnsignedLesson: entities.UnsignedLesson{
-		// 			Teacher:      teacher,
-		// 			StudentGroup: group,
-		// 			Discipline:   teacherLoad.Discipline,
-		// 			Type:         teacherLoad.LessonType,
-		// 		},
-		// 	})
-		// }
+		if !teacher.IsEnoughLessonsFor(entities.NewTeacherLoadKey(discipline, studentGroup, lessonType)) {
+			ma.errorService.AddError(&MissingLessonsAdderError{
+				UnassignedLesson: *load,
+			})
+		}
 	}
 
 }
