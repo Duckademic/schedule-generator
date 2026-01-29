@@ -19,108 +19,18 @@ type ScheduleGeneratorConfig struct {
 	FillPercentage     float64     // відсоток заповненості типом пар для визначення кількості днів
 }
 
-type ScheduleGenerator struct {
-	ScheduleGeneratorConfig
-	BusyGrid            [][]float32
+type generatorData struct {
+	busyGrid            [][]float32
 	teacherService      services.TeacherService
 	studentGroupService services.StudentGroupService
 	lessonService       services.LessonService
 	disciplineService   services.DisciplineService
 	lessonTypeService   services.LessonTypeService
 	studyLoadService    services.StudyLoadService
-	errorService        components.ErrorService
-	boneWeek            int
-}
-
-func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
-	if len(cfg.WorkLessons) != 7 {
-		return nil, fmt.Errorf("length of WorkLessons %d instead of 7", len(cfg.WorkLessons))
-	}
-	if cfg.Start.After(cfg.End) {
-		return nil, fmt.Errorf("start date comes after end")
-	}
-
-	scheduleGenerator := ScheduleGenerator{
-		ScheduleGeneratorConfig: cfg,
-	}
-
-	index := 0
-	for date := cfg.Start; !date.After(cfg.End); date = date.AddDate(0, 0, 1) {
-		scheduleGenerator.BusyGrid = append(scheduleGenerator.BusyGrid, make([]float32, len(cfg.WorkLessons[date.Weekday()])))
-		copy(scheduleGenerator.BusyGrid[index], cfg.WorkLessons[date.Weekday()])
-		index++
-	}
-
-	ls, err := services.NewLessonService(cfg.LessonsValue)
-	if err != nil {
-		return nil, err
-	}
-	scheduleGenerator.lessonService = ls
-
-	scheduleGenerator.errorService = components.NewErrorService()
-
-	return &scheduleGenerator, nil
-}
-
-func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
-	ts, err := services.NewTeacherService(teachers, g.BusyGrid)
-	if err != nil {
-		return err
-	}
-
-	g.teacherService = ts
-	return nil
-}
-
-func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup) error {
-	sgs, err := services.NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.BusyGrid)
-	if err != nil {
-		return err
-	}
-
-	g.studentGroupService = sgs
-	return nil
-}
-
-func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error {
-	ds, err := services.NewDisciplineService(disciplines)
-	if err != nil {
-		return err
-	}
-
-	g.disciplineService = ds
-	return nil
-}
-
-func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
-	lts, err := services.NewLessonTypeService(lTypes)
-	if err != nil {
-		return err
-	}
-
-	g.lessonTypeService = lts
-	g.boneWeek = 4 // stub
-	return nil
-}
-
-func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
-	err := g.CheckServices([]bool{true, true, true, true})
-	if err != nil {
-		return err
-	}
-
-	sls, err := services.NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService,
-		g.disciplineService, g.lessonTypeService)
-	if err != nil {
-		return err
-	}
-
-	g.studyLoadService = sls
-	return nil
 }
 
 // 0 - teacher, 1 - student group, 2 - discipline, 3 - lesson type service.
-func (g *ScheduleGenerator) CheckServices(services []bool) error {
+func (g *generatorData) CheckServices(services []bool) error {
 	checks := append(services, make([]bool, 4-len(services))...)
 
 	if checks[0] && g.teacherService == nil {
@@ -142,18 +52,161 @@ func (g *ScheduleGenerator) CheckServices(services []bool) error {
 	return nil
 }
 
+type ScheduleGenerator struct {
+	ScheduleGeneratorConfig
+	generatorData
+	errorService components.ErrorService
+	weekData     generatorData
+}
+
+func NewScheduleGenerator(cfg ScheduleGeneratorConfig) (*ScheduleGenerator, error) {
+	if len(cfg.WorkLessons) != 7 {
+		return nil, fmt.Errorf("length of WorkLessons %d instead of 7", len(cfg.WorkLessons))
+	}
+	if cfg.Start.After(cfg.End) {
+		return nil, fmt.Errorf("start date comes after end")
+	}
+
+	scheduleGenerator := ScheduleGenerator{
+		ScheduleGeneratorConfig: cfg,
+	}
+
+	index := 0
+	for date := cfg.Start; !date.After(cfg.End); date = date.AddDate(0, 0, 1) {
+		scheduleGenerator.busyGrid = append(scheduleGenerator.busyGrid, make([]float32, len(cfg.WorkLessons[date.Weekday()])))
+		copy(scheduleGenerator.busyGrid[index], cfg.WorkLessons[date.Weekday()])
+		index++
+	}
+
+	for i := range 7 {
+		scheduleGenerator.weekData.busyGrid = append(scheduleGenerator.weekData.busyGrid,
+			make([]float32, len(cfg.WorkLessons[i])))
+		copy(scheduleGenerator.weekData.busyGrid[i], cfg.WorkLessons[i])
+	}
+
+	ls, err := services.NewLessonService(cfg.LessonsValue)
+	if err != nil {
+		return nil, err
+	}
+
+	weekLS, err := services.NewLessonService(cfg.LessonsValue)
+	if err != nil {
+		return nil, err
+	}
+
+	scheduleGenerator.lessonService = ls
+	scheduleGenerator.weekData.lessonService = weekLS
+
+	scheduleGenerator.errorService = components.NewErrorService()
+
+	return &scheduleGenerator, nil
+}
+
+func (g *ScheduleGenerator) SetTeachers(teachers []types.Teacher) error {
+	ts, err := services.NewTeacherService(teachers, g.busyGrid)
+	if err != nil {
+		return err
+	}
+
+	weekTS, err := services.NewTeacherService(teachers, g.weekData.busyGrid)
+	if err != nil {
+		return err
+	}
+
+	g.teacherService = ts
+	g.weekData.teacherService = weekTS
+	return nil
+}
+
+func (g *ScheduleGenerator) SetStudentGroups(studentGroups []types.StudentGroup) error {
+	sgs, err := services.NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.busyGrid)
+	if err != nil {
+		return err
+	}
+
+	weekSGS, err := services.NewStudentGroupService(studentGroups, g.MaxStudentWorkload, g.weekData.busyGrid)
+	if err != nil {
+		return err
+	}
+
+	g.studentGroupService = sgs
+	g.weekData.studentGroupService = weekSGS
+	return nil
+}
+
+func (g *ScheduleGenerator) SetDisciplines(disciplines []types.Discipline) error {
+	ds, err := services.NewDisciplineService(disciplines)
+	if err != nil {
+		return err
+	}
+
+	weekDS, err := services.NewDisciplineService(disciplines)
+	if err != nil {
+		return err
+	}
+
+	g.disciplineService = ds
+	g.weekData.disciplineService = weekDS
+	return nil
+}
+
+func (g *ScheduleGenerator) SetLessonTypes(lTypes []types.LessonType) error {
+	lts, err := services.NewLessonTypeService(lTypes)
+	if err != nil {
+		return err
+	}
+
+	weekLTS, err := services.NewLessonTypeService(lTypes)
+	if err != nil {
+		return err
+	}
+
+	g.lessonTypeService = lts
+	g.weekData.lessonTypeService = weekLTS
+	return nil
+}
+
+func (g *ScheduleGenerator) SetStudyLoads(studyLoads []types.StudyLoad) error {
+	if err := g.CheckServices([]bool{true, true, true, true}); err != nil {
+		return err
+	}
+	if err := g.weekData.CheckServices([]bool{true, true, true, true}); err != nil {
+		return err
+	}
+
+	sls, err := services.NewStudyLoadService(studyLoads, g.teacherService, g.studentGroupService,
+		g.disciplineService, g.lessonTypeService)
+	if err != nil {
+		return err
+	}
+
+	weekSLS, err := services.NewStudyLoadService(studyLoads, g.weekData.teacherService, g.weekData.studentGroupService,
+		g.weekData.disciplineService, g.weekData.lessonTypeService)
+	if err != nil {
+		return err
+	}
+	g.weekData.studentGroupService.UnbindWeeks()
+
+	g.studyLoadService = sls
+	g.weekData.studyLoadService = weekSLS
+	return nil
+}
+
 // main function
 func (g *ScheduleGenerator) GenerateSchedule() error {
 	if g.studyLoadService == nil {
 		return fmt.Errorf("study loads not set")
 	}
+	if g.weekData.studyLoadService == nil {
+		return fmt.Errorf("study loads not set")
+	}
 
-	components.NewDayBlocker(g.studentGroupService.GetAll(), g.errorService).SetDayTypes()
+	components.NewDayBlocker(g.weekData.studentGroupService.GetAll(), g.errorService).SetDayTypes()
 
-	components.NewBoneGenerator(g.errorService, g.studyLoadService.GetAll(), g.lessonService, g.boneWeek).GenerateBoneLessons()
+	components.NewBoneGenerator(g.errorService, g.weekData.studyLoadService.GetAll(), g.weekData.lessonService).GenerateBoneLessons()
 	g.buildLessonCarcass()
 
-	components.NewMissingLessonAdder(g.errorService, g.studyLoadService.GetAll(), g.lessonService).AddMissingLessons()
+	// components.NewMissingLessonAdder(g.errorService, g.studyLoadService.GetAll(), g.lessonService).AddMissingLessons()
 
 	// improver := components.NewImprover(g.lessonService)
 	// improver.SubmitChanges() // CRUNCH - sets start slots for first lesson
@@ -177,19 +230,37 @@ func (g *ScheduleGenerator) GenerateSchedule() error {
 }
 
 func (g *ScheduleGenerator) buildLessonCarcass() {
-	boneLessons := g.lessonService.GetWeekLessons(g.boneWeek)
-	currentWeek := 0
-	outOfGrid := false
-	for !outOfGrid && currentWeek <= len(g.BusyGrid)/7+1 {
-		for _, lesson := range boneLessons {
-			newSlot := entities.NewLessonSlot(lesson.Day%7+currentWeek*7, lesson.Slot)
+	lessons := g.weekData.lessonService.GetAll()
+	for _, lesson := range lessons {
+		teacher := g.teacherService.Find(lesson.Teacher.ID)
+		studentGroup := g.studentGroupService.Find(lesson.StudentGroup.ID)
+		for weekday := range 7 {
+			weekLT := lesson.StudentGroup.GetTypeOfDay(weekday)
+			if weekLT != nil {
+				lt := studentGroup.GetTypeOfDay(weekday)
+				if lt == nil {
+					lt := g.lessonTypeService.Find(weekLT.ID)
+					err := studentGroup.BindWeekday(lt, weekday)
+					if err != nil {
+						g.errorService.AddError(components.NewUnexpectedError("can't bind the lesson type to the day",
+							"ScheduleGenerator", "buildLessonCarcass", err))
+					}
+				}
+			}
+		}
+		discipline := g.disciplineService.Find(lesson.Discipline.ID)
+		lessonType := g.lessonTypeService.Find(lesson.Type.ID)
 
-			err := g.lessonService.AssignLesson(lesson.UnassignedLesson, newSlot)
+		currentWeek := 0
+		outOfGrid := false
+		for !outOfGrid {
+			err := g.lessonService.AssignLesson(*entities.NewUnassignedLesson(lessonType, teacher, studentGroup, discipline),
+				entities.NewLessonSlot(lesson.Day+currentWeek*7, lesson.Slot))
 			if _, ok := err.(entities.DayOutError); ok {
 				outOfGrid = true
 			}
+			currentWeek++
 		}
-		currentWeek++
 	}
 }
 

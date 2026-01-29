@@ -36,17 +36,18 @@ func NewTeacherService(t []types.Teacher, bg [][]float32) (TeacherService, error
 			}
 		}
 
-		success := false
-		for j, lowerTeacher := range ts.teachers {
-			if lowerTeacher.Priority <= teacher.Priority {
-				ts.teachers = append(ts.teachers[:j], append([]*entities.Teacher{teacher}, ts.teachers[j:]...)...)
-				success = true
-				break
-			}
-		}
-		if !success {
-			ts.teachers = append(ts.teachers, teacher)
-		}
+		// sort in priority order (not necessary now)
+		// success := false
+		// for j, lowerTeacher := range ts.teachers {
+		// 	if lowerTeacher.Priority <= teacher.Priority {
+		// 		ts.teachers = append(ts.teachers[:j], append([]*entities.Teacher{teacher}, ts.teachers[j:]...)...)
+		// 		success = true
+		// 		break
+		// 	}
+		// }
+		// if !success {
+		ts.teachers = append(ts.teachers, teacher)
+		// }
 	}
 
 	return &ts, nil

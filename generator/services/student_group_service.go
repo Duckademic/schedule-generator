@@ -18,6 +18,7 @@ type StudentGroupService interface {
 	CountOvertimeLessons() int             // Returns the total number of overtime lessons (above the daily limit).
 	// Returns the total number of lesson scheduled on days that are not allowed for their type.
 	CountInvalidLessonsByType() int
+	UnbindWeeks() // Clears week binding of student groups.
 }
 
 // NewStudentGroupService creates a new StudentGroupService basic instance.
@@ -107,4 +108,9 @@ func (sgs *studentGroupService) CountInvalidLessonsByType() (count int) {
 		count += sg.CountInvalidLessonsByType()
 	}
 	return
+}
+func (sgs *studentGroupService) UnbindWeeks() {
+	for _, group := range sgs.studentGroups {
+		group.UnbindWeeks()
+	}
 }

@@ -21,6 +21,7 @@ type LessonTypeBinder interface {
 	//
 	// Returns an error if the week is already blocked.
 	BindWeek(*LessonType, int) error
+	UnbindWeeks() // Clears week binding.
 	// Assigns a lesson type to a specific weekday.
 	//
 	// Returns an error if the weekday is already blocked.
@@ -29,6 +30,7 @@ type LessonTypeBinder interface {
 	//
 	// Week binding has higher priority than weekday binding.
 	IsDayOfType(*LessonType, int) bool
+	GetTypeOfDay(int) *LessonType // Returns the lesson type for this day, or nil if there isn't one.
 }
 
 // NewLessonTypeBinder creates a new basic LessonTypeChecker instance.
@@ -77,4 +79,14 @@ func (c *lessonTypeBinder) IsDayOfType(lt *LessonType, day int) bool {
 }
 func (c *lessonTypeBinder) IsWeekday(day int) bool {
 	return day >= 0 && day <= 6
+}
+func (c *lessonTypeBinder) UnbindWeeks() {
+	c.weekBinding = make(map[int]*LessonType)
+}
+func (c *lessonTypeBinder) GetTypeOfDay(day int) *LessonType {
+	if !c.IsWeekday(day) {
+		return nil
+	}
+
+	return c.dayBinding[day]
 }

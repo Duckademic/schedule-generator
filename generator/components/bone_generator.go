@@ -8,24 +8,22 @@ import (
 )
 
 // BoneGenerator creates the initial weekly lesson structure (“bone week”)
-// by allocating lesson slots for groups and teachers.
+// by allocating lesson slots for groups and teachers in the first week.
 type BoneGenerator interface {
 	GeneratorComponent    // Basic interface for generator component
 	GenerateBoneLessons() // Add a BoneWeekError to ErrorService if at not enough space at bone week
 }
 
 // NewBoneGenerator creates a BoneGenerator instance.
-// It requires an ErrorService, a list of study loads, a LessonService,
-// and the target bone-week number (bw).
-func NewBoneGenerator(es ErrorService, l []*entities.UnassignedLesson, ls services.LessonService, bw int) BoneGenerator {
-	return &boneGenerator{errorService: es, loads: l, lessonService: ls, boneWeek: bw}
+// It requires an ErrorService, a list of study loads, a LessonService.
+func NewBoneGenerator(es ErrorService, l []*entities.UnassignedLesson, ls services.LessonService) BoneGenerator {
+	return &boneGenerator{errorService: es, loads: l, lessonService: ls}
 }
 
 type boneGenerator struct {
 	errorService  ErrorService
 	loads         []*entities.UnassignedLesson
 	lessonService services.LessonService
-	boneWeek      int
 }
 
 // GenerateBoneLessons allocates lesson slots for the bone week.
@@ -43,8 +41,8 @@ func (bg *boneGenerator) GenerateBoneLessons() {
 
 		for !success {
 			// отримуємо доступний лекційний день
-			day := studentGroup.GetNextDayOfType(lessonType, bg.boneWeek*7+offset)
-			if day > bg.boneWeek*7+7 || day < 0 {
+			day := studentGroup.GetNextDayOfType(lessonType, offset)
+			if day > 7 || day < 0 {
 				// якщо день був не на кістковому тижні, виникає виняток, який треба обробити якось
 				bg.errorService.AddError(&BoneWeekError{UnassignedLesson: *load})
 				break
@@ -66,7 +64,7 @@ func (bg *boneGenerator) GenerateBoneLessons() {
 				}
 				success = true
 			}
-			offset = day - bg.boneWeek*7 + 1
+			offset = day + 1
 		}
 
 	}

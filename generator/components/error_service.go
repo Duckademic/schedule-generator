@@ -12,6 +12,7 @@ const (
 	SetDayTypeErrorType GeneratorComponentErrorTypes = iota
 	BoneWeekErrorType
 	MissingLessonsAdderErrorType
+
 	unexpectedErrorType = -1
 )
 
@@ -40,7 +41,6 @@ type unexpectedError struct {
 func (e *unexpectedError) Error() string {
 	return fmt.Sprintf("%s %s ==> %s. \n└-- basic error: %s", e.className, e.methodName, e.description, e.err.Error())
 }
-
 func (e *unexpectedError) GetTypeOfError() GeneratorComponentErrorTypes {
 	return unexpectedErrorType
 }
@@ -68,11 +68,9 @@ func (ec *errorService) AddError(err GeneratorComponentError) {
 	}
 	ec.errorMap[errorType] = append(ec.errorMap[errorType], err)
 }
-
 func (ec *errorService) IsClear() bool {
 	return len(ec.errorMap) == 0
 }
-
 func (ec *errorService) Error() string {
 	if len(ec.errorMap) == 0 {
 		return ""
